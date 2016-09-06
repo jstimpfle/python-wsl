@@ -299,29 +299,29 @@ def parse_row(line, datatypes_of_relation):
 def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, datatype_parsers=None):
     """Convenience def to parse a WSL database.
 
-    This parses the schema (from *schemastr* if given, or else as inline schema
-    from *lines*), and then calls *parse_row()* with each line in *lines*.
+    Exactly one of *dbfilepath*, *dblines* or *dbstr* should be given.
 
-    Only one of dbfilepath, dblines or dbstr should be given.
+    This parses the schema (from *schemastr* if given, or else as inline schema
+    from *lines*), and then calls *parse_row()* for each line in *lines*.
 
     Args:
         dbfilepath (str or bytes): Path to the file that contains the database.
-        dblines (iter): An iterator yielding the (str) lines of the database.
-            This works for all TextIOBase objects, like sys.stdin or open()ed
-            files.
+        dblines (iter): An iterable over the (str) lines of the database.
+            This works for all TextIOBase objects, like *sys.stdin* or
+            *open()*ed files.
         dbstr (str): A string that holds the database.
         schemastr (str): Optional extern schema specification. If *None* is
             given, the schema is expected to be given inline as part of the
             database (each line prefixed with *%*)
         datatype_parsers (list): Optional datatype-declaration parsers for the
             datatypes used in the database. If None is given, only the
-            built-in datatypes (wsl.builtin_datatype_parsers) are
+            built-in datatypes (*wsl.builtin_datatype_parsers*) are
             available.
 
     Returns:
-        (str, dict): A 2-tuple (schema, tuples_of_relation) consisting of the
+        (str, dict): A 2-tuple *(schema, tuples_of_relation)* consisting of the
         parsed schema and a dict mapping each relation name (in
-        schema.relations) to a list of database tuples.
+        *schema.relations*) to a list of database tuples.
 
     Raises:
         wsl.ParseError: if the parse failed.
