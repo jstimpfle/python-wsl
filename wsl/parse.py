@@ -330,7 +330,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, datatype
         raise ValueError('parse_db() needs exactly one of dbfilepath, dblines or dbstr')
 
     if dbfilepath is not None:
-        lines = open(filepath, "r", encoding="utf-8", newline='\n')
+        lines = open(dbfilepath, "r", encoding="utf-8", newline='\n')
     if dblines is not None:
         lines = dblines
     if dbstr is not None:

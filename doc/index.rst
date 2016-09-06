@@ -51,9 +51,11 @@ type. Its advantage is having separate opening and closing delimiters.
 
     filepath = "db.wsl"
     schema, tables = wsl.parse_db(dbfilepath=filepath, schemastr=None, datatype_parsers=None)
-    print(wsl.check_integrity(schema, tables))
     print(tables['person'])
     print(tables['parent'])
+    problems = wsl.check_integrity(schema, tables)
+    for x in problems:
+        print(x)
 
 Read a WSL database from a python3 string. Here, the schema is given
 separately.
@@ -77,11 +79,12 @@ separately.
     parent foo bar
     """
 
-    lines = iter(db.splitlines())
     schema, tables = wsl.parse_db(dbstr=db, schemastr=sch, datatype_parsers=None)
-    print(wsl.check_integrity(schema, tables))
     print(tables['person'])
     print(tables['parent'])
+    problems = wsl.check_integrity(schema, tables)
+    for x in problems:
+        print(x)
 
 Given a parsed schema and a suitable tables dict, we can encode the database
 back to a text string:
