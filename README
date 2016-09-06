@@ -1,0 +1,14 @@
+python-wsl
+==========
+
+This is a Python3 library for reading and writing WSL data.
+
+WSL is a text format for relational databases:
+http://jstimpfle.de/projects/wsl/main.html
+
+To generate documentation, use the Sphinx source under doc/. For example,
+
+$ make -C doc/ html
+
+It needs the Sphinx autodoc extension, and the relatively new `napoleon`
+extension (which is not in Debian jessie but stretch).
