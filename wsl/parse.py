@@ -44,28 +44,28 @@ def split_header(ahead):
     sch = ''.join(l+'\n' for l in schlines)
     return sch
 
-def parse_domain_decl(name, line, datatype_parsers):
+def parse_domain_decl(name, line, domain_parsers):
     """Parse a domain declaration line.
 
     Args:
         name (str): name for the resulting domain.
-        line (str): contains specification of the datatype to parse.
-        datatype_parsers (dict): dict mapping datatype parser names to datatype parsers.
+        line (str): contains specification of the domain to parse.
+        domain_parsers (dict): dict mapping domain parser names to domain parsers.
 
     Returns:
-        wsl.datatype: The parsed datatype.
+        wsl.domain: The parsed domain.
 
     Raises:
         wsl.ParseError: If the parse failed
     """
 
     ws = line.split(None, 1)
-    meta, param = ws[0], ws[1] if len(ws) == 2 else ''
-    parser = datatype_parsers.get(meta)
+    parser_name, param = ws[0], ws[1] if len(ws) == 2 else ''
+    parser = domain_parsers.get(parser_name)
     if parser is None:
-        raise wsl.ParseError('Datatype "%s" not available while parsing DOMAIN declaration' %(name,))
-    dt = parser(param)
-    return dt
+        raise wsl.ParseError('Parser "%s" not available while parsing DOMAIN declaration' %(parser_name,))
+    do = parser(param)
+    return do
 
 def parse_logic_tuple(line):
     ws = line.split()
@@ -116,11 +116,11 @@ def parse_reference_decl(line):
     rel2, vs2 = parse_logic_tuple(fd)
     return name, rel1, vs1, rel2, vs2
 
-def parse_schema(schemastr, datatype_parsers):
-    if datatype_parsers is None:
-        datatype_parsers = dict(wsl.builtin_datatype_parsers)
+def parse_schema(schemastr, domain_parsers):
+    if domain_parsers is None:
+        domain_parsers = dict(wsl.builtin_domain_parsers)
     else:
-        datatype_parsers = dict(datatype_parsers)
+        domain_parsers = dict(domain_parsers)
 
     domains = set()
     relations = set() 
@@ -131,7 +131,7 @@ def parse_schema(schemastr, datatype_parsers):
     spec_of_key = {} 
     spec_of_reference = {} 
     domains_of_relation = {} 
-    datatype_of_domain = {} 
+    object_of_domain = {} 
     tuple_of_key = {} 
     tuple_of_reference = {} 
 
@@ -171,8 +171,8 @@ def parse_schema(schemastr, datatype_parsers):
 
     for domain in domains:
         spec = spec_of_domain[domain]
-        dt = parse_domain_decl(domain, spec, datatype_parsers)
-        datatype_of_domain[domain] = dt
+        do = parse_domain_decl(domain, spec, domain_parsers)
+        object_of_domain[domain] = do
     for relation in relations:
         spec = spec_of_relation[relation]
         rdoms = spec.split()
@@ -221,7 +221,7 @@ def parse_schema(schemastr, datatype_parsers):
     return wsl.Schema(schemastr,
          domains, relations, keys, references,
          spec_of_relation, spec_of_domain, spec_of_key, spec_of_reference,
-         datatype_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference)
+         object_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference)
 
 def parse_relation(line, i):
     end = len(line)
@@ -254,32 +254,31 @@ def parse_space(line, i):
         raise wsl.ParseError('Expected space character in line %s at position %d' %(line, i))
     return i+1
 
-def parse_values(line, i, datatypes):
-    """Parse values from line according to *datatypes*, separated by single spaces.
+def parse_values(line, i, domain_objects):
+    """Parse values from line according to *domain_objects*, separated by single spaces.
 
     Args:
         line (str): holds a database tuple.
         i (int): An index into the line where the space is supposed to be.
-        datatypes (tuple of wsl.datatype): Tuple holding the datatypes that are
-            expected in this line.
+        domain_objects (dict): dict mapping the name of each domain that is expected in this line to its domain object.
     """
     end = len(line)
     vs = []
-    for dt in datatypes:
+    for do in domain_objects:
         i = parse_space(line, i)
-        val, i = dt.decode(line, i)
+        val, i = do.decode(line, i)
         vs.append(val)
     if i != end:
         raise wsl.ParseError('Expected EOL at character %d in line %s' %(i+1, line))
     return tuple(vs)
 
-def parse_row(line, datatypes_of_relation):
+def parse_row(line, objects_of_relation):
     """Parse a database tuple (consisting of a table name and according values).
 
     Args:
         line (str): holds a database tuple.
-        datatypes_of_relation (dict): maps relation names to the list of the
-            datatypes of their according columns.
+        objects_of_relation (dict): maps relation names to the list of the
+            domain objects of their according columns.
 
     Returns:
         (str, tuple): A 2-tuple (relation, values) consisting of a relation
@@ -290,13 +289,13 @@ def parse_row(line, datatypes_of_relation):
     """
     end = len(line)
     relation, i = parse_relation(line, 0)
-    datatypes = datatypes_of_relation.get(relation)
-    if datatypes is None:
+    dos = objects_of_relation.get(relation)
+    if dos is None:
         raise wsl.ParseError('No such table: "%s" while parsing line: %s' %(relation, line))
-    values = parse_values(line, i, datatypes)
+    values = parse_values(line, i, dos)
     return relation, values
 
-def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, datatype_parsers=None):
+def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_parsers=None):
     """Convenience def to parse a WSL database.
 
     Exactly one of *dbfilepath*, *dblines* or *dbstr* should be given.
@@ -313,14 +312,13 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, datatype
         schemastr (str): Optional extern schema specification. If *None* is
             given, the schema is expected to be given inline as part of the
             database (each line prefixed with *%*)
-        datatype_parsers (list): Optional datatype-declaration parsers for the
-            datatypes used in the database. If None is given, only the
-            built-in datatypes (*wsl.builtin_datatype_parsers*) are
-            available.
+        domain_parsers (list): Optional domain parsers for the domains used in
+            the database. If not given, the built-in parsers
+            (*wsl.builtin_domain_parsers*) are used.
 
     Returns:
-        (str, dict): A 2-tuple *(schema, tuples_of_relation)* consisting of the
-        parsed schema and a dict mapping each relation name (in
+        (wsl.Schema, dict): A 2-tuple *(schema, tuples_of_relation)* consisting
+        of the parsed schema and a dict mapping each relation name (in
         *schema.relations*) to a list of database tuples.
 
     Raises:
@@ -340,7 +338,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, datatype
 
     if schemastr is None:
         schemastr = split_header(lookahead)
-    schema = parse_schema(schemastr, datatype_parsers)
+    schema = parse_schema(schemastr, domain_parsers)
 
     tuples_of_relation = dict()
     for relation in schema.relations:
@@ -348,7 +346,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, datatype
     for line in lookahead:
         line = line.strip()
         if line:
-            r, tup = parse_row(line, schema.datatypes_of_relation)
+            r, tup = parse_row(line, schema.objects_of_relation)
             tuples_of_relation[r].append(tup)
 
     return schema, tuples_of_relation

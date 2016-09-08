@@ -1,4 +1,4 @@
-from .datatype import builtin_datatype_parsers
+from .domain import builtin_domain_parsers
 from .exceptions import WslError
 from .exceptions import ParseError
 from .exceptions import FormatError

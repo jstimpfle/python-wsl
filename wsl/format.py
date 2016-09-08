@@ -65,7 +65,7 @@ def format_db(schema, tuples_of_relation, inline_schema):
     for relation in sorted(tuples_of_relation.keys()):
         encoders = []
         for x in schema.domains_of_relation[relation]:
-            encoders.append(schema.datatype_of_domain[x].encode)
+            encoders.append(schema.object_of_domain[x].encode)
         for tup in sorted(tuples_of_relation[relation]):
             lines.append(format_row(relation, tup, encoders))
     body = ''.join(lines)

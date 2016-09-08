@@ -31,8 +31,8 @@ class Schema:
             *references* attribute to a textual representation of that
             reference. It is guaranteed to be a single line (including the
             terminating newline character).
-        datatype_of_domain: dict object, mapping each domain name from the
-            *domains* attribute to its corresponding *datatype* object.
+        object_of_domain: dict object, mapping each domain name from the
+            *domains* attribute to its corresponding domain object.
         domains_of_relation: dict object, mapping each relation name from the
             *relations* attribute to a tuple of the names of the columns of
             that relation (in order).
@@ -44,20 +44,20 @@ class Schema:
             relation name, column indices)*. This represents the reference
             constraint as (compatible) keys in the local and foreign relation.
 
-        datatypes_of_relation: dict object, mapping each relation name from the
-            *relations* attribute to a tuple of the datatypes corresponding to
-            the columns of that relation. This attribute is for convenience; it
-            is created in the constructor from the input arguments.
+        objects_of_relation: dict object, mapping each relation name from the
+            *relations* attribute to a tuple of the domain objects corresponding
+            to the columns of that relation. This attribute is for convenience;
+            it is created in the constructor from the input arguments.
         
     """
     def __init__(self, spec,
             domains, relations, keys, references,
             spec_of_relation, spec_of_domain, spec_of_key, spec_of_reference,
-            datatype_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference):
+            object_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference):
 
         for x in domains:
             assert x in spec_of_domain
-            assert x in datatype_of_domain
+            assert x in object_of_domain
 
         for xs in domains_of_relation.values():
             for x in xs:
@@ -84,12 +84,12 @@ class Schema:
         self.spec_of_domain = spec_of_domain
         self.spec_of_key = spec_of_key
         self.spec_of_reference = spec_of_reference
-        self.datatype_of_domain = datatype_of_domain
+        self.object_of_domain = object_of_domain
         self.domains_of_relation = domains_of_relation
         self.tuple_of_key = tuple_of_key
         self.tuple_of_reference = tuple_of_reference
 
-        self.datatypes_of_relation = dict((rel, tuple(self.datatype_of_domain[d] for d in self.domains_of_relation[rel])) for rel in self.relations)
+        self.objects_of_relation = dict((rel, tuple(self.object_of_domain[d] for d in self.domains_of_relation[rel])) for rel in self.relations)
 
     def _debug_str(self):
         return """
@@ -101,7 +101,7 @@ class Schema:
             spec_of_domain: %s
             spec_of_key: %s
             spec_of_reference: %s
-            datatype_of_domain: %s
+            object_of_domain: %s
             domains_of_relation: %s
             tuple_of_key: %s
             tuple_of_reference: %s
@@ -114,7 +114,7 @@ class Schema:
         self.spec_of_domain,
         self.spec_of_key,
         self.spec_of_reference,
-        self.datatype_of_domain,
+        self.object_of_domain,
         self.domains_of_relation,
         self.tuple_of_key,
         self.tuple_of_reference)

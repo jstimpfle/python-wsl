@@ -2,40 +2,21 @@ wsl - Python 3 library for WSL databases
 ========================================
 
 This library provides an easy to use API to read and write WSL databases with
-built-in and user-defined datatypes. It does not fight the system but uses
-*str* for parsing and formatting throughout; the disadvantage being that it's
-rather slow.
-
-WSL (whitespace separated literals) is an extremely simple and practical text
-serialization format for relational data. It is in many ways a better CSV:
-
- - Contains database (schema + many tables) instead of only one table
- - One line per table row without exception
- - Parsing returns sanitized values, not only strings (according to the columns of each table)
- - Per-datatype lexical syntax for readable, editable, and hackable databases
- - Built-in datatypes with sane syntaxes and behaviours: Identifiers ("Atoms"), Strings, Enums, Integers
- - Easy integration of custom datatypes
- - Unique and foreign keys supported
-
-The other goal is to be a better SQLite whenever the data is small enough to be
-scanned completely. For example, many web applications.
-
- - Well-known benefits of textual storage
- - Extendable set of datatypes -- no tedious conversion boilerplate
- - Easy to compose with any query language -- data comes out as python lists of tuples. No SQL boilerplate and no huge query strings
+built-in and user-defined datatypes. It uses *str* for parsing and formatting
+throughout.
 
 The wsl library in 1 minute:
 ----------------------------
 
-Read a WSL database from a file with included schema. The built-in datatypes
-*Atom* and *String* are used to construct meaningful domains. These domains are
-used to define tables. *[Foo Bar]* is the notation for the standard WSL string
-type. Its advantage is having separate opening and closing delimiters.
+Read a WSL database from a file with included schema. The built-in types *ID*
+and *String* are used to construct meaningful domains. These domains in turn
+are used to define tables. *[Foo Bar]* is the notation for the standard WSL
+string type.  Its advantage is having separate opening and closing delimiters.
 
 .. code:: text
 
     $ cat db.wsl
-    % DOMAIN Person Atom
+    % DOMAIN Person ID
     % DOMAIN Comment String
     % TABLE person Person Comment
     % TABLE parent Person Person
@@ -50,7 +31,7 @@ type. Its advantage is having separate opening and closing delimiters.
     import wsl
 
     filepath = "db.wsl"
-    schema, tables = wsl.parse_db(dbfilepath=filepath, schemastr=None, datatype_parsers=None)
+    schema, tables = wsl.parse_db(dbfilepath=filepath, schemastr=None, domain_parsers=None)
     print(tables['person'])
     print(tables['parent'])
     problems = wsl.check_integrity(schema, tables)
@@ -65,7 +46,7 @@ separately.
     import wsl
 
     sch = """\
-    DOMAIN Person Atom
+    DOMAIN Person ID
     DOMAIN Comment String
     TABLE person Person Comment
     TABLE parent Person Person
@@ -74,12 +55,12 @@ separately.
     REFERENCE parent * P => person P *
     """
 
-    db = """
+    db = """\
     person foo [Foo Bar]
     parent foo bar
     """
 
-    schema, tables = wsl.parse_db(dbstr=db, schemastr=sch, datatype_parsers=None)
+    schema, tables = wsl.parse_db(dbstr=db, schemastr=sch, domain_parsers=None)
     print(tables['person'])
     print(tables['parent'])
     problems = wsl.check_integrity(schema, tables)
@@ -97,11 +78,12 @@ back to a text string:
 User-defined datatypes
 ----------------------
 
-Custom datatypes are quite easy to add. We need a decoder and an encoder. The
-decoder gets the line and the position in that line where a value of that
-datatype is supposed to begin. It parses the value and returns it together with
-the position of the first unconsumed character. The encoder simply serializes
-any given value to a string. Let's make a datatype for base64 encoded data.
+Custom datatypes are quite easy to add. We need a decoder and an encoder for
+values in database tuples. The decoder gets the line and the position in that
+line where a value of that datatype is supposed to begin. It parses the value
+and returns it together with the position of the first unconsumed character.
+The encoder just serializes any given value to a string. Let's make a decoder /
+encoder pair for base64 encoded data.
 
 .. code:: python3
 
@@ -125,19 +107,19 @@ any given value to a string. Let's make a datatype for base64 encoded data.
     def base64_encode(x):
         return base64.b64encode(x).decode('ascii')  # dance the unicode dance :/
 
-Finally, we need another parser which gets DOMAIN directives on a single line
-and returns a datatype object (which contains the decoder and the encoder).
-This is the place where the datatype can be parameterized. For example, this
-parser could be made to understand a specification of a range of valid
-integers, or regular expressions that specify valid string values.
+Furthermore we need *domain parser*. A domain parser gets a parameterization
+string (on a single line) and returns a domain object (which contains a decoder
+and the encoder). This is the place where the datatype can be parameterized.
+For example, this parser could be made to understand a specification of a range
+of valid integers, or regular expressions that specify valid string values.
 
 In this example, we don't add any parameterizability. But later, we might want
 to specify other characters instead of + and /.
 
 .. code:: python3
 
-    def parse_base64_datatype(line):
-        """Parser for Base64 datatype declarations.
+    def parse_Base64_domain(line):
+        """Parser for Base64 domain declarations.
 
         No special syntax is recognized. Only the bare "Base64" is allowed.
         # TODO: Allow other characters instead of + and /
@@ -149,23 +131,24 @@ to specify other characters instead of + and /.
             encode = base64_encode
         return Base64Datatype
 
-Now we can easily parse a database using our custom parser:
+Now we can parse a database using our custom parser:
 
 .. code:: python3
 
-    schemastring = """\
+    sch = """\
     DOMAIN Filename String
     DOMAIN Data Base64
     TABLE pic Filename Data
     """
 
-    db = """
+    db = """\
     pic [cat.png] bGDOgm10Dm+5ZPjfNmuP4kalHWUlqT3ZAK7WdP9QniET60y5aO4WmxDCxZUTD/IKOrC2DTSLSb/tLWkb7AyYfP1oMqdw08AFEVTdl8EEA2xldYPF4FY9WB5N+87Ymmjo7vVMpiFvcMJkZZv0zOQ6eeMpCUH2MoTPrrkTHOHx/yPA2hO32gKnOGpoCZQ7q6wUS/M1oHd6DRu1CyIMeJTAZAQjJz74oYAfr8Qt1GOWVswzLkojZlODE1WcVt8nrfm3+Kj3YNS43g2zNGwf7mb2Z7OZwzMqtQNnCuDJgXN3
     """
 
-    dtparsers = wsl.builtin_datatype_parsers + (('Base64', parse_base64_datatype),)
-    lines = iter(db.splitlines())
-    schema, tables = wsl.parse_db(lines, schemastring, datatype_parsers=dtparsers)
+    dps = wsl.builtin_domain_parsers + (('Base64', parse_Base64_domain),)
+    schema, tables = wsl.parse_db(dbstr=db, schemastr=sch, domain_parsers=dps)
+    txt = wsl.format_db(schema, tables, inline_schema=True)
+    print(txt, end='')
 
 API listing
 -----------
