@@ -19,6 +19,43 @@ type that *decode* returns, and returns a string holding the serialized value. A
 
 import wsl
 
+def split_opts(line):
+    opts = []
+    for word in line.split():
+        if '=' in word:
+            key, val = word.split('=', 1)
+        else:
+            key, val = word, None
+        opts.append((key, val, word))
+    return opts
+
+def hex2dec(c):
+    x = ord(c)
+    if 0x30 <= x < 0x40:
+        return x - 0x30
+    if 0x61 <= x < 0x67:
+        return x - 0x57
+    raise wsl.ParseError('Not a valid hexadecimal character: %c' %(c,))
+
+def parse_hex(chars):
+    if len(chars) >= 2:
+        return hex2dec(chars[0])*16 + hex2dec(chars[1])
+    raise wsl.ParseError()
+
+def parse_unicode(chars):
+    if len(chars) >= 4:
+        try:
+            return chr(int(chars[:4]))
+        except:
+            raise wsl.ParseError()
+
+def parse_Unicode(chars):
+    if len(chars) >= 8:
+        try:
+            return chr(int(chars[:8]))
+        except:
+            raise wsl.ParseError()
+
 def parse_ID_domain(line):
     """Parser for ID domain declarations.
 
@@ -32,11 +69,16 @@ def parse_ID_domain(line):
     return IDDomain
 
 def parse_String_domain(line):
-    if line:
-        raise wsl.ParseError('Construction of String domain does not receive any arguments')
+    opts = split_opts(line)
+    escape = False
+    for key, val, orig in opts:
+        if key == 'escape' and val is None:
+            escape = True
+        else:
+            raise wsl.ParseError('Did not understand String parameterization: %s' %(orig,))
     class StringDomain:
-        decode = string_decode
-        encode = string_encode
+        decode = make_string_decode(escape)
+        encode = make_string_encode(escape)
     return StringDomain
 
 def parse_Int_domain(line):
@@ -80,25 +122,75 @@ def id_encode(idval):
             raise ValueError('Disallowed character %c in ID value: %s' %(c, idval))
     return idval
 
-def string_decode(line, i):
-    """Value decoder for String domain"""
-    end = len(line)
-    if i == end or ord(line[i]) != 0x5b:
-        raise wsl.ParseError('Did not find expected WSL string literal at character %d in line %s' %(i+1, line))
-    i += 1
-    x = i
-    while i < end and ord(line[i]) != 0x5d:
-        i += 1
-    if i == end:
-        raise wsl.ParseError('EOL while looking for closing quote in line %s' %(line))
-    return (line[x:i], i+1)
+def make_string_decode(escape):
+    if escape:
+        def string_decode(line, i):
+            """Value decoder for String literals with \\xDD, \\uDDDD and \\uDDDDDDDDD escape sequences."""
+            end = len(line)
+            if i == end or ord(line[i]) != 0x5b:
+                raise wsl.ParseError('Did not find expected WSL string literal at character %d in line %s' %(i+1, line))
+            i += 1
+            x = i
+            cs = []
+            while i < end and ord(line[i]) != 0x5d:
+                if line[i] == '\\':
+                    if i+1 < end:
+                        if line[i+1] == 'x':
+                            cs.append(chr(parse_hex(line[i+2:])))
+                            i += 4
+                        elif line[i+1] == 'u':
+                            cs.append(chr(parse_unicode(line[i+2:])))
+                            i += 6
+                        elif line[i+1] == 'U':
+                            cs.append(chr(parse_Unicode(line[i+2:])))
+                            i += 10
+                        else:
+                            raise wsl.ParseError('Unknown escape sequence: \\%c' %(line[i+1],))
+                else:
+                    cs.append(line[i])
+                    i += 1
+            if i == end:
+                raise wsl.ParseError('EOL while looking for closing quote in line %s' %(line))
+            return (''.join(cs), i+1)
+    else:
+        def string_decode(line, i):
+            """Value decoder for String literals without escapes"""
+            end = len(line)
+            if i == end or ord(line[i]) != 0x5b:
+                raise wsl.ParseError('Did not find expected WSL string literal at character %d in line %s' %(i+1, line))
+            i += 1
+            x = i
+            while i < end and ord(line[i]) != 0x5d:
+                i += 1
+            if i == end:
+                raise wsl.ParseError('EOL while looking for closing quote in line %s' %(line))
+            return (line[x:i], i+1)
+    return string_decode
 
-def string_encode(string):
-    """Value encoder for String domain"""
-    for c in string:
-        if ord(c) < 0x20 or ord(c) in [0x5b, 0x5d, 0x7f]:
-            raise ValueError('Disallowed character %c in String value: %s' %(c, string))
-    return '[' + string + ']'
+def make_string_encode(escape):
+    if escape:
+        def string_encode(string):
+            frags = ['[']
+            for c in string:
+                code = ord(c)
+                if 0x20 <= code < 0x7f and code not in (0x5b, 0x5d):
+                    frags.append(c)
+                elif 0 <= code < 0x20 or code in (0x5b, 0x5d) or 0x7f <= code <= 0xff:
+                    frags.append('\\x%02x' %code)
+                elif 256 <= code <= 9999:
+                    frags.append('\\u%04d' %code)
+                else:
+                    frags.append('\\U%08d' %code)
+            frags.append(']')
+            return ''.join(frags)
+    else:
+        def string_encode(string):
+            """Value encoder for String literals without escapes"""
+            for c in string:
+                if ord(c) < 0x20 or ord(c) in [0x5b, 0x5d, 0x7f]:
+                    raise ValueError('Disallowed character %c in String value: %s' %(c, string))
+            return '[' + string + ']'
+    return string_encode
 
 def integer_decode(line, i):
     """Value decoder for Integer domain"""
@@ -170,10 +262,22 @@ def ipv4_encode(ip):
     except ValueError as e:
         raise ValueError('Not a valid ip address (need 4-tuple of integers in [0,255])')
 
-builtin_domain_parsers = (
-    ('ID', parse_ID_domain),
-    ('String', parse_String_domain),
-    ('Enum', parse_Enum_domain),
-    ('Int', parse_Int_domain),
-    ('IPv4', parse_ipv4_domain)
-)
+_builtin_domain_parsers = {
+    'ID': parse_ID_domain,
+    'String': parse_String_domain,
+    'Enum': parse_Enum_domain,
+    'Int': parse_Int_domain,
+    'IPv4': parse_ipv4_domain,
+}
+
+def get_builtin_domain_parsers():
+    """Get a dict containing all domain parsers built-in to this library.
+
+    The dict is freshly created, so can be modified by the caller.
+
+    Args:
+
+    Returns:
+        dict: A dictionary mapping the names of all built-in parsers to the parsers.
+    """
+    return dict(_builtin_domain_parsers)

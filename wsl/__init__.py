@@ -1,4 +1,4 @@
-from .domain import builtin_domain_parsers
+from .domain import get_builtin_domain_parsers
 from .exceptions import WslError
 from .exceptions import ParseError
 from .exceptions import FormatError

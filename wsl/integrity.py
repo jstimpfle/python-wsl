@@ -23,7 +23,7 @@ def check_integrity(schema, tuples_of_relation):
             self.keys = []  # list of (name, indices, index-set)
             self.refs = []  # list of (indices, index-set)
 
-    data_of = dict()
+    data_of = {}
     for relation in schema.relations:
         data_of[relation] = RelationData()
         data_of[relation].keys.append((b'NODUPLICATEROWS', list(range(len(schema.domains_of_relation[relation]))), set()))

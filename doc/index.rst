@@ -5,6 +5,8 @@ This library provides an easy to use API to read and write WSL databases with
 built-in and user-defined datatypes. It uses *str* for parsing and formatting
 throughout.
 
+WARNING: This library is experimental. API changes are to be expected.
+
 The wsl library in 1 minute:
 ----------------------------
 
@@ -145,7 +147,8 @@ Now we can parse a database using our custom parser:
     pic [cat.png] bGDOgm10Dm+5ZPjfNmuP4kalHWUlqT3ZAK7WdP9QniET60y5aO4WmxDCxZUTD/IKOrC2DTSLSb/tLWkb7AyYfP1oMqdw08AFEVTdl8EEA2xldYPF4FY9WB5N+87Ymmjo7vVMpiFvcMJkZZv0zOQ6eeMpCUH2MoTPrrkTHOHx/yPA2hO32gKnOGpoCZQ7q6wUS/M1oHd6DRu1CyIMeJTAZAQjJz74oYAfr8Qt1GOWVswzLkojZlODE1WcVt8nrfm3+Kj3YNS43g2zNGwf7mb2Z7OZwzMqtQNnCuDJgXN3
     """
 
-    dps = wsl.builtin_domain_parsers + (('Base64', parse_Base64_domain),)
+    dps = wsl.get_builtin_domain_parsers()
+    dps['Base64'] = parse_Base64_domain
     schema, tables = wsl.parse_db(dbstr=db, schemastr=sch, domain_parsers=dps)
     txt = wsl.format_db(schema, tables, inline_schema=True)
     print(txt, end='')

@@ -118,9 +118,7 @@ def parse_reference_decl(line):
 
 def parse_schema(schemastr, domain_parsers):
     if domain_parsers is None:
-        domain_parsers = dict(wsl.builtin_domain_parsers)
-    else:
-        domain_parsers = dict(domain_parsers)
+        domain_parsers = wsl.get_builtin_domain_parsers()
 
     domains = set()
     relations = set() 
@@ -313,8 +311,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
             given, the schema is expected to be given inline as part of the
             database (each line prefixed with *%*)
         domain_parsers (list): Optional domain parsers for the domains used in
-            the database. If not given, the built-in parsers
-            (*wsl.builtin_domain_parsers*) are used.
+            the database. If not given, the built-in parsers are used.
 
     Returns:
         (wsl.Schema, dict): A 2-tuple *(schema, tuples_of_relation)* consisting
@@ -340,7 +337,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
         schemastr = split_header(lookahead)
     schema = parse_schema(schemastr, domain_parsers)
 
-    tuples_of_relation = dict()
+    tuples_of_relation = {}
     for relation in schema.relations:
         tuples_of_relation[relation] = []
     for line in lookahead:
