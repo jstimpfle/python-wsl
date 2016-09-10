@@ -82,10 +82,10 @@ User-defined datatypes
 
 Custom datatypes are quite easy to add. We need a decoder and an encoder for
 values in database tuples. The decoder gets the line and the position in that
-line where a value of that datatype is supposed to begin. It parses the value
-and returns it together with the position of the first unconsumed character.
-The encoder just serializes any given value to a string. Let's make a decoder /
-encoder pair for base64 encoded data.
+line where a value of that datatype is supposed to begin. It returns the parsed
+value and the position of the first unconsumed character (or raises
+*wsl.ParseError*). The encoder just serializes any given value to a string.
+Let's make a decoder / encoder pair for base64 encoded data.
 
 .. code:: python3
 
@@ -157,4 +157,4 @@ API listing
 -----------
 
 .. automodule:: wsl
-   :members: parse_db, parse_row, parse_values, parse_schema, parse_domain_decl, parse_key_decl, parse_reference_decl, check_integrity, Schema, format_db, format_row,
+   :members: parse_db, parse_schema, parse_row, parse_values, check_integrity, Schema, format_db, format_row, format_values

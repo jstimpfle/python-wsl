@@ -1,5 +1,4 @@
-"""Module wsl.parse: Functionality for parsing the rows of a WSL database given schema
-information."""
+"""Module wsl.parse: Functionality for parsing a WSL database."""
 
 import wsl
 
@@ -53,7 +52,7 @@ def parse_domain_decl(name, line, domain_parsers):
         domain_parsers (dict): dict mapping domain parser names to domain parsers.
 
     Returns:
-        wsl.domain: The parsed domain.
+        wsl.domain: The parsed domain object.
 
     Raises:
         wsl.ParseError: If the parse failed
@@ -81,7 +80,7 @@ def parse_key_decl(line):
     Returns:
         (str, str, list): A 3-tuple (name, relation, variables) consisting of
         an identifying name (currently just the line itself), the relation on
-        which the key constraint is placed, and the variables or * characters split into a list
+        which the key constraint is placed, and the variables or "*" wildcards split into a list
 
     Raises:
         wsl.ParseError: If the parse failed
@@ -117,6 +116,18 @@ def parse_reference_decl(line):
     return name, rel1, vs1, rel2, vs2
 
 def parse_schema(schemastr, domain_parsers):
+    """Parse a wsl schema (without *%* escapes)
+
+    Args:
+        schemastr (str): The schema string to parse
+        domain_parsers (dict): maps parser names to parsers
+
+    Returns:
+        wsl.Schema: The parsed schema object
+
+    Raises:
+        wsl.ParseError: If the parse failed
+    """
     if domain_parsers is None:
         domain_parsers = wsl.get_builtin_domain_parsers()
 
@@ -221,7 +232,7 @@ def parse_schema(schemastr, domain_parsers):
          spec_of_relation, spec_of_domain, spec_of_key, spec_of_reference,
          object_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference)
 
-def parse_relation(line, i):
+def parse_relation_name(line, i):
     end = len(line)
     if not 0x41 <= ord(line[i]) <= 0x5a and not 0x61 <= ord(line[i]) <= 0x7a:
         raise wsl.ParseError('Expected table name at character %d in line "%s"' %(i+1, line))
@@ -259,6 +270,12 @@ def parse_values(line, i, domain_objects):
         line (str): holds a database tuple.
         i (int): An index into the line where the space is supposed to be.
         domain_objects (dict): dict mapping the name of each domain that is expected in this line to its domain object.
+
+    Returns:
+        tuple: A tuple containing the parsed values.
+
+    Raises:
+        wsl.ParseError: The called parsers raise ParseErrors if parsing fails.
     """
     end = len(line)
     vs = []
@@ -271,7 +288,10 @@ def parse_values(line, i, domain_objects):
     return tuple(vs)
 
 def parse_row(line, objects_of_relation):
-    """Parse a database tuple (consisting of a table name and according values).
+    """Parse a database tuple (a relation name and according values).
+
+    This def parses a relation name, which is used to lookup a domain object
+    in *objects_of_relation*. Then that object is used to call *parse_values()*.
 
     Args:
         line (str): holds a database tuple.
@@ -279,14 +299,14 @@ def parse_row(line, objects_of_relation):
             domain objects of their according columns.
 
     Returns:
-        (str, tuple): A 2-tuple (relation, values) consisting of a relation
-        name and another tuple holding the parsed values.
+        (str, tuple): A 2-tuple (relation, values), i.e. the relation name and a
+            tuple containing the parsed values.
 
     Raises:
         wsl.ParseError: if the parse failed.
     """
     end = len(line)
-    relation, i = parse_relation(line, 0)
+    relation, i = parse_relation_name(line, 0)
     dos = objects_of_relation.get(relation)
     if dos is None:
         raise wsl.ParseError('No such table: "%s" while parsing line: %s' %(relation, line))
@@ -305,7 +325,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
         dbfilepath (str or bytes): Path to the file that contains the database.
         dblines (iter): An iterable over the (str) lines of the database.
             This works for all TextIOBase objects, like *sys.stdin* or
-            *open()*ed files.
+            open()ed files.
         dbstr (str): A string that holds the database.
         schemastr (str): Optional extern schema specification. If *None* is
             given, the schema is expected to be given inline as part of the

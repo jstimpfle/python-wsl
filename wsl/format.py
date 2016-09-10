@@ -21,6 +21,23 @@ def format_schema(schema, escape=False):
     else:
         return schema.spec
 
+def format_values(tup, encoders):
+    """Encode a WSL database tuple (without leading relation name)
+
+    Args:
+        tup (tuple): Some values to encode
+        encoders: Encoders according to the values in *tup*.
+
+    Returns:
+        str: A single line (including the terminating newline character).
+
+    Raises:
+        wsl.FormatError: if encoding fails.
+    """
+    x = []
+    for val, encode in zip(tup, encoders):
+        x.append(encode(val))
+    return ' '.join(x) + '\n'
 
 def format_row(relation, tup, encoders):
     """Encode a WSL database row.
