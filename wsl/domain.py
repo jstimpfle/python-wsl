@@ -31,7 +31,7 @@ def split_opts(line):
 
 def hex2dec(c):
     x = ord(c)
-    if 0x30 <= x < 0x40:
+    if 0x30 <= x <= 0x39:
         return x - 0x30
     if 0x61 <= x < 0x67:
         return x - 0x57
@@ -207,13 +207,13 @@ def make_String_encode(escape):
 def Int_decode(line, i):
     """Value decoder for Int domain"""
     end = len(line)
-    if i == end or not 0x30 <= ord(line[i]) < 0x40:
+    if i == end or not 0x30 <= ord(line[i]) <= 0x39:
         raise wsl.ParseError('Did not find expected integer literal at character %d in line %s' %(i+1, line))
     if ord(line[i]) == 0x30:
         raise wsl.ParseError('Found integer literal starting with zero at character %d in line %s' %(i+1, line))
     n = ord(line[i]) - 0x30
     i += 1
-    while i < end and 0x30 <= ord(line[i]) < 0x40:
+    while i < end and 0x30 <= ord(line[i]) <= 0x39:
         n = 10*n + ord(line[i]) - 0x30
         i += 1
     return (n, i)
@@ -249,7 +249,7 @@ def make_Enum_encode(options):
 def IPv4_decode(line, i):
     end = len(line)
     x = i
-    while i < end and (0x30 <= ord(line[i]) < 0x40 or ord(line[i]) == 0x2e):
+    while i < end and (0x30 <= ord(line[i]) <= 0x39 or ord(line[i]) == 0x2e):
         i += 1
     token = line[x:i]
     ws = token.split('.')
