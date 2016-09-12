@@ -2,6 +2,19 @@
 
 import wsl
 
+def _islowercase(c):
+    return 0x61 <= ord(c) <= 0x7a
+
+def _isuppercase(c):
+    return 0x41 <= ord(c) <= 0x5a
+
+def _isdigit(c):
+    return 0x30 <= ord(c) <= 0x39
+
+def _isidentifier(x):
+    return (x and (_islowercase(x[0]) or _isuppercase(x[0]))
+             and all(_islowercase(c) or _isuppercase(c) or c == '_' for c in x[1:]))
+
 def _isvariable(v):
     return len(v) != 0 and v[0:1].isalpha() and v.isalnum()
 
@@ -78,16 +91,16 @@ def parse_key_decl(line):
             KEY keyword) on a single line
 
     Returns:
-        (str, str, list): A 3-tuple (name, relation, variables) consisting of
-        an identifying name (currently just the line itself), the relation on
-        which the key constraint is placed, and the variables or "*" wildcards split into a list
+        (str, list): A 2-tuple (relation, variables) holding the relation name
+            on which the key constraint is placed, and the variables or "*"
+            wildcards split into a list.
 
     Raises:
         wsl.ParseError: If the parse failed
     """
     name = line  # XXX
     rel, vs = parse_logic_tuple(line)
-    return name, rel, vs
+    return rel, vs
 
 def parse_reference_decl(line):
     """Parse a reference constraint declaration.
@@ -97,10 +110,9 @@ def parse_reference_decl(line):
             keyword)
 
     Returns:
-        (str, str, list, str, list): a 5-tuple (name, relation1, variables1,
-        relation2, variables2) which consists of an identifying name for the
-        constraint (currently just the line itself), and the local and foreign
-        relation names and variable lists.
+        (str, list, str, list): a 4-tuple (relation1, variables1, relation2,
+            variables2) holding the local and foreign relation names and
+            variable lists.
 
     Raises:
         wsl.ParseError: If the parse failed
@@ -110,10 +122,9 @@ def parse_reference_decl(line):
     if len(parts) != 2:
         raise wsl.ParseError('Could not parse "%s" as REFERENCE constraint' %(line,))
     ld, fd = parts[0].strip(), parts[1].strip()
-    name = line  # XXX
     rel1, vs1 = parse_logic_tuple(ld)
     rel2, vs2 = parse_logic_tuple(fd)
-    return name, rel1, vs1, rel2, vs2
+    return rel1, vs1, rel2, vs2
 
 def parse_schema(schemastr, domain_parsers):
     """Parse a wsl schema (without *%* escapes)
@@ -168,13 +179,23 @@ def parse_schema(schemastr, domain_parsers):
                 relations.add(name)
                 spec_of_relation[name] = rest2
         elif decl == 'KEY':
-            name = rest  # XXX
+            try:
+                name, spec = rest.split(' ', 1)
+            except ValueError as e:
+                raise wsl.ParseError('Failed to parse KEY declaration "%s": Need at least a new identifier and a datatype name' %(line,)) from e
+            if not _isidentifier(name):
+                raise wsl.ParseError('Bad KEY name: "%s": Must be an identifier, in line "%s"' %(name, line))
             keys.add(name)
-            spec_of_key[name] = rest
+            spec_of_key[name] = spec
         elif decl == 'REFERENCE':
-            name = rest  # XXX
+            try:
+                name, spec = rest.split(' ', 1)
+            except ValueError as e:
+                raise wsl.ParseError('Failed to parse REFERENCE declaration "%s": Need at least a new identifier and a datatype name' %(line,)) from e
+            if not _isidentifier(name):
+                raise wsl.ParseError('Bad REFERENCE name: "%s": Must be an identifier, in line "%s"' %(name, line))
             references.add(name)
-            spec_of_reference[name] = rest
+            spec_of_reference[name] = spec
         else:
             pass  # XXX
 
@@ -189,9 +210,9 @@ def parse_schema(schemastr, domain_parsers):
             if dom not in domains:
                 raise wsl.ParseError('Declaration of table "%s" references unknown domain "%s"' %(relation, dom))
         domains_of_relation[relation] = rdoms
-    for key in keys:
-        spec = spec_of_key[key]
-        name, rel, vs = parse_key_decl(spec)
+    for name in keys:
+        spec = spec_of_key[name]
+        rel, vs = parse_key_decl(spec)
         ix = []
         if rel not in relations:
             raise wsl.ParseError('No such table: "%s" while parsing KEY constraint "%s"' %(rel, spec))
@@ -200,29 +221,29 @@ def parse_schema(schemastr, domain_parsers):
         for i, v in enumerate(vs):
             if _isvariable(v):
                 if v in ix:
-                    raise wsl.ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s"' %(v, name))
+                    raise wsl.ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s %s"' %(v, name, spec))
                 ix.append(i)
             elif v != '*':
                 raise wsl.ParseError('Invalid variable "%s" while REFERENCE constraint "%s"' %(v, name))
         tuple_of_key[name] = rel, ix
-    for reference in references:
-        spec = spec_of_reference[reference]
-        name, rel1, vs1, rel2, vs2 = parse_reference_decl(spec)
+    for name in references:
+        spec = spec_of_reference[name]
+        rel1, vs1, rel2, vs2 = parse_reference_decl(spec)
         ix1, ix2 = {}, {}
         for (rel, vs, ix) in [(rel1,vs1,ix1), (rel2,vs2,ix2)]:
             if rel not in relations:
-                raise wsl.ParseError('No such table: "%s" while parsing REFERENCE constraint "%s"' %(rel, name))
+                raise wsl.ParseError('No such table: "%s" while parsing REFERENCE constraint "%s %s"' %(rel, name, spec))
             if len(vs) != len(domains_of_relation[rel]):
-                raise wsl.ParseError('Arity mismatch for table "%s" while parsing KEY constraint "%s"' %(rel, name))
+                raise wsl.ParseError('Arity mismatch for table "%s" while parsing KEY constraint "%s %s"' %(rel, name, spec))
             for i, v in enumerate(vs):
                 if _isvariable(v):
                     if v in ix:
-                        raise wsl.ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s"' %(v, name))
+                        raise wsl.ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s %s"' %(v, name, name))
                     ix[v] = i
                 elif v != '*':
-                    raise wsl.ParseError('Invalid variable "%s" while parsing REFERENCE constraint "%s"' %(v, name))
+                    raise wsl.ParseError('Invalid variable "%s" while parsing REFERENCE constraint "%s %s"' %(v, name, spec))
         if sorted(ix1.keys()) != sorted(ix2.keys()):
-            raise wsl.ParseError('Different variables used on both sides of "=>" while parsing REFERENCE constraint "%s"' %(name,))
+            raise wsl.ParseError('Different variables used on both sides of "=>" while parsing REFERENCE constraint "%s %s"' %(name, spec))
         is1 = [i for _, i in sorted(ix1.items())]
         is2 = [i for _, i in sorted(ix2.items())]
         tuple_of_reference[name] = rel1, is1, rel2, is2
