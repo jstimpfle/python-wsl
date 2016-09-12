@@ -78,16 +78,14 @@ def format_db(schema, tuples_of_relation, inline_schema):
     Raises:
         wsl.FormatError: if formatting fails.
     """
-    lines = []
+    if inline_schema:
+        yield format_schema(schema, escape=True)
     for relation in sorted(tuples_of_relation.keys()):
         encoders = []
         for x in schema.domains_of_relation[relation]:
             encoders.append(schema.object_of_domain[x].encode)
-        for tup in sorted(tuples_of_relation[relation]):
-            lines.append(format_row(relation, tup, encoders))
-    body = ''.join(lines)
-    if inline_schema:
-        hdr = format_schema(schema, escape=True)
-        return hdr + body
-    else:
-        return body
+        try:
+            for tup in sorted(tuples_of_relation[relation]):
+                yield format_row(relation, tup, encoders)
+        except wsl.FormatError as e:
+            raise wsl.FormatError('Failed to format tuple %s' % (tup,)) from e
