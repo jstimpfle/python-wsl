@@ -19,8 +19,10 @@ if __name__ == '__main__':
         sch = None
     schema, tables = wsl.parse_db(dblines=sys.stdin, schemastr=sch, domain_parsers=None)
     problems = wsl.check_integrity(schema, tables)
-    for x in problems:
-        print('Integrity error:', x)
-    if len(problems) == 0:
-        txt = wsl.format_db(schema, tables, inline_schema=True)
-        print(txt, end='')
+    if problems:
+        for x in problems:
+            print('Integrity error:', x)
+    else:
+        pass
+        #for line in wsl.format_db(schema, tables, inline_schema=True):
+        #    print(line, end='')
