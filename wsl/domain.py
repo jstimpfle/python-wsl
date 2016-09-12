@@ -64,8 +64,8 @@ def parse_ID_domain(line):
     if line:
         raise wsl.ParseError('Construction of ID domain does not receive any arguments')
     class IDDomain:
-        decode = id_decode
-        encode = id_encode
+        decode = ID_decode
+        encode = ID_encode
     return IDDomain
 
 def parse_String_domain(line):
@@ -77,35 +77,35 @@ def parse_String_domain(line):
         else:
             raise wsl.ParseError('Did not understand String parameterization: %s' %(orig,))
     class StringDomain:
-        decode = make_string_decode(escape)
-        encode = make_string_encode(escape)
+        decode = make_String_decode(escape)
+        encode = make_String_encode(escape)
     return StringDomain
 
 def parse_Int_domain(line):
     if line:
         raise wsl.ParseError('Construction of Integer domain does not receive any arguments')
-    class IntegerDomain:
-        decode = integer_decode
-        encode = integer_encode
-    return IntegerDomain
+    class IntDomain:
+        decode = Int_decode
+        encode = Int_encode
+    return IntDomain
 
 def parse_Enum_domain(line):
     values = line.split()
     options = list(enumerate(values))
     class EnumDomain:
-        decode = make_enum_decode(options)
-        encode = make_enum_encode(options)
+        decode = make_Enum_decode(options)
+        encode = make_Enum_encode(options)
     return EnumDomain
 
-def parse_ipv4_domain(line):
+def parse_IPv4_domain(line):
     if line.strip():
         raise wsl.ParseError('IPv4 domain doesn\'t take any arguments')
     class IPv4:
-        decode = ipv4_decode
-        encode = ipv4_encode
+        decode = IPv4_decode
+        encode = IPv4_encode
     return IPv4
 
-def id_decode(line, i):
+def ID_decode(line, i):
     """Value decoder for ID domain"""
     end = len(line)
     x = i
@@ -115,25 +115,29 @@ def id_decode(line, i):
         raise wsl.ParseError('EOL or invalid character while expecting ID at character %d in line "%s"' %(i+1, line))
     return (line[x:i], i)
 
-def id_encode(idval):
+def ID_encode(idval):
     """Value encoder for ID domain"""
     for c in idval:
         if ord(c) < 0x20 or ord(c) in [0x20, 0x5b, 0x5d, 0x7f]:
-            raise ValueError('Disallowed character %c in ID value: %s' %(c, idval))
+            raise wsl.FormatError('Disallowed character %c in ID value: %s' %(c, idval))
     return idval
 
-def make_string_decode(escape):
+def make_String_decode(escape):
     if escape:
-        def string_decode(line, i):
+        def String_decode(line, i):
             """Value decoder for String literals with \\xDD, \\uDDDD and \\uDDDDDDDDD escape sequences."""
             end = len(line)
-            if i == end or ord(line[i]) != 0x5b:
+            if i == end or ord(line[i]) != 0x5b:  # [
                 raise wsl.ParseError('Did not find expected WSL string literal at character %d in line %s' %(i+1, line))
             i += 1
             x = i
             cs = []
-            while i < end and ord(line[i]) != 0x5d:
-                if line[i] == '\\':
+            while i < end:
+                c = line[i]
+                d = ord(c)
+                if d == 0x5d:  # ]
+                    break
+                if d == 0x5c:  # \\
                     if i+1 < end:
                         if line[i+1] == 'x':
                             cs.append(chr(parse_hex(line[i+2:])))
@@ -147,29 +151,37 @@ def make_string_decode(escape):
                         else:
                             raise wsl.ParseError('Unknown escape sequence: \\%c' %(line[i+1],))
                 else:
-                    cs.append(line[i])
+                    if d < 0x20 or d in [0x5b, 0x7f]:
+                        raise wsl.ParseError('Disallowed character %.2x in string literal at character "%d" in line "%s"' %(d, i, line))
+                    cs.append(c)
                     i += 1
             if i == end:
                 raise wsl.ParseError('EOL while looking for closing quote in line %s' %(line))
             return (''.join(cs), i+1)
     else:
-        def string_decode(line, i):
+        def String_decode(line, i):
             """Value decoder for String literals without escapes"""
             end = len(line)
             if i == end or ord(line[i]) != 0x5b:
                 raise wsl.ParseError('Did not find expected WSL string literal at character %d in line %s' %(i+1, line))
             i += 1
             x = i
-            while i < end and ord(line[i]) != 0x5d:
+            while i < end:
+                c = line[i]
+                d = ord(c)
+                if d == 0x5d:  # ]
+                    break
+                if d < 0x20 or d in [0x5b, 0x7f]:
+                    raise wsl.ParseError('Disallowed character %.2x in string literal at character "%d" in line "%s"' %(c, i, line))
                 i += 1
             if i == end:
                 raise wsl.ParseError('EOL while looking for closing quote in line %s' %(line))
             return (line[x:i], i+1)
-    return string_decode
+    return String_decode
 
-def make_string_encode(escape):
+def make_String_encode(escape):
     if escape:
-        def string_encode(string):
+        def String_encode(string):
             frags = ['[']
             for c in string:
                 code = ord(c)
@@ -184,16 +196,16 @@ def make_string_encode(escape):
             frags.append(']')
             return ''.join(frags)
     else:
-        def string_encode(string):
+        def String_encode(string):
             """Value encoder for String literals without escapes"""
             for c in string:
                 if ord(c) < 0x20 or ord(c) in [0x5b, 0x5d, 0x7f]:
-                    raise ValueError('Disallowed character %c in String value: %s' %(c, string))
+                    raise wsl.FormatError('Disallowed character 0x%.2x in String value: "%s"' %(ord(c), string))
             return '[' + string + ']'
-    return string_encode
+    return String_encode
 
-def integer_decode(line, i):
-    """Value decoder for Integer domain"""
+def Int_decode(line, i):
+    """Value decoder for Int domain"""
     end = len(line)
     if i == end or not 0x30 <= ord(line[i]) < 0x40:
         raise wsl.ParseError('Did not find expected integer literal at character %d in line %s' %(i+1, line))
@@ -206,12 +218,12 @@ def integer_decode(line, i):
         i += 1
     return (n, i)
 
-def integer_encode(integer):
-    """Value encoder for Integer domain"""
+def Int_encode(integer):
+    """Value encoder for Int domain"""
     return str(integer)
 
-def make_enum_decode(options):
-    def enum_decode(line, i):
+def make_Enum_decode(options):
+    def Enum_decode(line, i):
         """Value decoder for Enum domain"""
         end = len(line)
         x = i
@@ -225,16 +237,16 @@ def make_enum_decode(options):
             if t == token:
                 return (option, i)
         raise wsl.ParseError('Invalid token "%s" at line "%s" character %d; valid tokens are %s' %(token, line, i, ','.join(y for x, y in options)))
-    return enum_decode
+    return Enum_decode
 
-def make_enum_encode(options):
-    def enum_encode(value):
+def make_Enum_encode(options):
+    def Enum_encode(value):
         """Value encoder for Enum domain"""
         i, token = value
         return token
-    return enum_encode
+    return Enum_encode
 
-def ipv4_decode(line, i):
+def IPv4_decode(line, i):
     end = len(line)
     x = i
     while i < end and (0x30 <= ord(line[i]) < 0x40 or ord(line[i]) == 0x2e):
@@ -252,7 +264,7 @@ def ipv4_decode(line, i):
             pass
     raise wsl.ParseError('IPv4 address must be 4-tuple of 1 byte integers (0-255)')
 
-def ipv4_encode(ip):
+def IPv4_encode(ip):
     try:
         a,b,c,d = ip
         for x in [a,b,c,d]:
@@ -260,14 +272,14 @@ def ipv4_encode(ip):
                 raise ValueError()
         return '%d.%d.%d.%d' %ip
     except ValueError as e:
-        raise ValueError('Not a valid ip address (need 4-tuple of integers in [0,255])')
+        raise wsl.FormatError('Not a valid ip address (need 4-tuple of integers in [0,255])')
 
 _builtin_domain_parsers = {
     'ID': parse_ID_domain,
     'String': parse_String_domain,
     'Enum': parse_Enum_domain,
     'Int': parse_Int_domain,
-    'IPv4': parse_ipv4_domain,
+    'IPv4': parse_IPv4_domain,
 }
 
 def get_builtin_domain_parsers():
