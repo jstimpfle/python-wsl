@@ -93,7 +93,7 @@ Let's make a decoder / encoder pair for base64 encoded data.
     import base64
     import binascii
 
-    def base64_decode(line, i):
+    def Base64_decode(line, i):
         end = len(line)
         beg = i
         while i < end and (0x41 <= ord(line[i]) <= 0x5a or 0x61 <= ord(line[i]) <= 0x7a or 0x30 <= ord(line[i]) <= 0x39 or line[i] in ['+','/']):
@@ -106,14 +106,15 @@ Let's make a decoder / encoder pair for base64 encoded data.
             raise wsl.ParseError('Failed to parse base64 literal at character %d, line "%s"' %(beg, line))
         return v, i
 
-    def base64_encode(x):
+    def Base64_encode(x):
         return base64.b64encode(x).decode('ascii')  # dance the unicode dance :/
 
-Furthermore we need *domain parser*. A domain parser gets a parameterization
-string (on a single line) and returns a domain object (which contains a decoder
-and the encoder). This is the place where the datatype can be parameterized.
-For example, this parser could be made to understand a specification of a range
-of valid integers, or regular expressions that specify valid string values.
+Furthermore we need a *domain parser*. A domain parser gets a parameterization
+string (on a single line) and returns a domain object (which contains the
+decoder and the encoder). For example, this parser could be made to understand
+a specification of a range of valid integers, or regular expressions that
+specify valid string values. The parameterization string is what comes after
+the name of the datatype in the DOMAIN declaration line of the database schema.
 
 In this example, we don't add any parameterizability. But later, we might want
 to specify other characters instead of + and /.
@@ -129,8 +130,8 @@ to specify other characters instead of + and /.
         if line:
             raise wsl.ParseError('Construction of Base64 domain does not receive any arguments')
         class Base64Datatype:
-            decode = base64_decode
-            encode = base64_encode
+            decode = Base64_decode
+            encode = Base64_encode
         return Base64Datatype
 
 Now we can parse a database using our custom parser:
