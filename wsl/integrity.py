@@ -16,7 +16,7 @@ def check_integrity(schema, tuples_of_relation):
     """
 
     def key_from_tup(tup, ix):
-        return tuple(tup[i] for i in ix)
+        return tuple(tup[i-1] for i in ix)
 
     class RelationData:
         def __init__(self):

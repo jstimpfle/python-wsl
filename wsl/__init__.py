@@ -17,3 +17,4 @@ from .parse import parse_domain_decl
 from .parse import parse_key_decl
 from .parse import parse_reference_decl
 from .schema import Schema
+from .dbtable import DbTable

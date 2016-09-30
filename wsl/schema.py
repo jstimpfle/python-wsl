@@ -37,7 +37,7 @@ class Schema:
             *relations* attribute to a tuple of the names of the columns of
             that relation (in order).
         tuple_of_key: dict object, mapping each key name from the *keys*
-            attribute to a tuple *(relation name, 0-based column indices)*.
+            attribute to a tuple *(relation name, 1-based column indices)*.
             This represents the specification of the key.
         tuple_of_reference: dict object, mapping each reference name from the
             *reference* attribute to a tuple *(relation name, column indices,

@@ -97,7 +97,10 @@ def make_tuple_type(clsname, arity, names=None, refs=None):
                 @property
                 def follow_ref(self):
                     k = self.get_some_columns(cols_here)
-                    return idx[k]
+                    try:
+                        return idx[k]
+                    except KeyError as e:
+                        raise wsl.IntegrityError('Could not follow reference to table "%s". Did you call build_indices() on all relevant tables?' %(table_there)) from e
                 return follow_ref
             setattr(cls, refname, make_follow_ref(idx, cols_here))
 
@@ -147,10 +150,12 @@ class DbTable:
         # to the whole tuple
         self._indices = {}
         for columns in keys.values():
+            columns = tuple(columns)
             self._indices[columns] = {}
 
     def get_index(self, columns):
         """Get the index for a subset of the columns"""
+        columns = tuple(columns)
         idx = self._indices.get(columns)
 
         if idx is None:
@@ -165,8 +170,7 @@ class DbTable:
             for tup in self.tuples:
                 some = tup.get_some_columns(columns)
                 idx[some] = tup
-                print('added %s to index' %(some,))
-            
+
     def fix_refs(self, tables):
         """
         Args:

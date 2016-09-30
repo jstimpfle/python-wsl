@@ -143,17 +143,17 @@ def parse_schema(schemastr, domain_parsers):
         domain_parsers = wsl.get_builtin_domain_parsers()
 
     domains = set()
-    relations = set() 
-    keys = set() 
-    references = set() 
-    spec_of_relation = {} 
-    spec_of_domain = {} 
-    spec_of_key = {} 
-    spec_of_reference = {} 
-    domains_of_relation = {} 
-    object_of_domain = {} 
-    tuple_of_key = {} 
-    tuple_of_reference = {} 
+    relations = set()
+    keys = set()
+    references = set()
+    spec_of_relation = {}
+    spec_of_domain = {}
+    spec_of_key = {}
+    spec_of_reference = {}
+    domains_of_relation = {}
+    object_of_domain = {}
+    tuple_of_key = {}
+    tuple_of_reference = {}
 
     for line in schemastr.splitlines():
         line = line.strip()
@@ -218,7 +218,7 @@ def parse_schema(schemastr, domain_parsers):
             raise wsl.ParseError('No such table: "%s" while parsing KEY constraint "%s"' %(rel, spec))
         if len(vs) != len(domains_of_relation[rel]):
             raise wsl.ParseError('Arity mismatch for table "%s" while parsing KEY constraint "%s"' %(rel, spec))
-        for i, v in enumerate(vs):
+        for i, v in enumerate(vs, 1):
             if _isvariable(v):
                 if v in ix:
                     raise wsl.ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s %s"' %(v, name, spec))
@@ -235,7 +235,7 @@ def parse_schema(schemastr, domain_parsers):
                 raise wsl.ParseError('No such table: "%s" while parsing REFERENCE constraint "%s %s"' %(rel, name, spec))
             if len(vs) != len(domains_of_relation[rel]):
                 raise wsl.ParseError('Arity mismatch for table "%s" while parsing KEY constraint "%s %s"' %(rel, name, spec))
-            for i, v in enumerate(vs):
+            for i, v in enumerate(vs, 1):
                 if _isvariable(v):
                     if v in ix:
                         raise wsl.ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s %s"' %(v, name, name))
@@ -378,13 +378,26 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
         schemastr = split_header(lookahead)
     schema = parse_schema(schemastr, domain_parsers)
 
-    tuples_of_relation = {}
+    tables = {}
     for relation in schema.relations:
-        tuples_of_relation[relation] = []
+        tablename = relation
+        arity = len(schema.domains_of_relation[relation])
+        keys = {}
+        for keyname, (rel, ix) in schema.tuple_of_key.items():
+            if rel == relation:
+                keys[keyname] = ix
+        refs = {}
+        for refname, (rel1, ix1, rel2, ix2) in schema.tuple_of_reference.items():
+            if rel1 == relation:
+                refs[refname] = ix1, rel2, ix2
+        tables[relation] = wsl.DbTable(relation, arity, keys=keys, refs=refs)
+    for t in tables.values():
+        t.fix_refs(tables)
+
     for line in lookahead:
         line = line.strip()
         if line:
             r, tup = parse_row(line, schema.objects_of_relation)
-            tuples_of_relation[r].append(tup)
+            tables[r].insert(tup)
 
-    return schema, tuples_of_relation
+    return schema, tables
