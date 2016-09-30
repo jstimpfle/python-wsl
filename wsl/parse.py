@@ -250,7 +250,7 @@ def parse_schema(schemastr, domain_parsers):
 
     return wsl.Schema(schemastr,
          domains, relations, keys, references,
-         spec_of_relation, spec_of_domain, spec_of_key, spec_of_reference,
+         spec_of_domain, spec_of_relation, spec_of_key, spec_of_reference,
          object_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference)
 
 def parse_relation_name(line, i):

@@ -52,43 +52,66 @@ class Schema:
     """
     def __init__(self, spec,
             domains, relations, keys, references,
-            spec_of_relation, spec_of_domain, spec_of_key, spec_of_reference,
+            spec_of_domain, spec_of_relation, spec_of_key, spec_of_reference,
             object_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference):
 
-        for x in domains:
-            assert x in spec_of_domain
-            assert x in object_of_domain
+        def is_list_or_tuple(x):
+            return isinstance(x, list) or isinstance(x, tuple)
 
-        for xs in domains_of_relation.values():
-            for x in xs:
-                assert x in domains
+        def map_set(func, set_):
+            return set(func(x) for x in set_)
 
-        for x in relations:
-            assert x in spec_of_relation
-            assert x in domains_of_relation
+        def map_dict(kfunc, vfunc, dict_):
+            return dict({ kfunc(k): vfunc(v) for k, v in dict_.items() })
 
-        for x in keys:
-            assert x in spec_of_key
-            assert x in tuple_of_key
+        assert isinstance(domains, set)
+        assert isinstance(relations, set)
+        assert isinstance(keys, set)
+        assert isinstance(references, set)
+        assert isinstance(spec_of_domain, dict)
+        assert isinstance(spec_of_relation, dict)
+        assert isinstance(spec_of_key, dict)
+        assert isinstance(spec_of_reference, dict)
+        assert isinstance(object_of_domain, dict)
+        assert isinstance(domains_of_relation, dict)
+        assert isinstance(tuple_of_key, dict)
+        assert isinstance(tuple_of_reference, dict)
 
-        for x in references:
-            assert x in spec_of_reference
-            assert x in tuple_of_reference
+        assert set(domains) == set(spec_of_domain) == set(object_of_domain)
+        assert set(relations) == set(spec_of_relation) == set(domains_of_relation)
+        assert set(keys) == set(spec_of_key) == set(tuple_of_key)
+        assert set(references) == set(spec_of_reference) == set(tuple_of_reference)
 
-        self.spec = spec
-        self.domains = domains
-        self.relations = relations
-        self.keys = keys
-        self.references = references
-        self.spec_of_relation = spec_of_relation
-        self.spec_of_domain = spec_of_domain
-        self.spec_of_key = spec_of_key
-        self.spec_of_reference = spec_of_reference
-        self.object_of_domain = object_of_domain
-        self.domains_of_relation = domains_of_relation
-        self.tuple_of_key = tuple_of_key
-        self.tuple_of_reference = tuple_of_reference
+        for x in domains: assert isinstance(x, str)
+        for x in relations: assert isinstance(x, str)
+        for x in keys: assert isinstance(x, str)
+        for x in references: assert isinstance(x, str)
+        for x in spec_of_domain.values(): assert isinstance(x, str)
+        for x in spec_of_relation.values(): assert isinstance(x, str)
+        for x in spec_of_key.values(): assert isinstance(x, str)
+        for x in spec_of_reference.values(): assert isinstance(x, str)
+        for x in object_of_domain.values(): pass  # ??
+        for x in domains_of_relation.values(): assert is_list_or_tuple(x)
+        for x in tuple_of_key.values(): assert is_list_or_tuple(x)
+        for x in tuple_of_reference.values(): assert is_list_or_tuple(x)
 
+        self.spec = str(spec)
+        self.domains = map_set(str, domains)
+        self.relations = map_set(str, relations)
+        self.keys = map_set(str, keys)
+        self.references = map_set(str, references)
+        self.spec_of_relation = map_dict(str, str, spec_of_relation)
+        self.spec_of_domain = map_dict(str, str, spec_of_domain)
+        self.spec_of_key = map_dict(str, str, spec_of_key)
+        self.spec_of_reference = map_dict(str, str, spec_of_reference)
+        self.object_of_domain = map_dict(str, lambda x: x, object_of_domain)
+        self.domains_of_relation = map_dict(str, lambda v: tuple(str(x) for x in v), domains_of_relation)
+        self.tuple_of_key = map_dict(str, tuple, tuple_of_key)
+        self.tuple_of_reference = map_dict(str, tuple, tuple_of_reference)
+
+        for rel in self.relations:
+            for d in self.domains_of_relation[rel]:
+                print(d)
         self.objects_of_relation = dict((rel, tuple(self.object_of_domain[d] for d in self.domains_of_relation[rel])) for rel in self.relations)
 
     def _debug_str(self):
