@@ -48,6 +48,7 @@ def parse_unicode(chars):
             return chr(int(chars[:4]))
         except:
             raise wsl.ParseError()
+    raise wsl.ParseError()
 
 def parse_Unicode(chars):
     if len(chars) >= 8:
@@ -55,6 +56,7 @@ def parse_Unicode(chars):
             return chr(int(chars[:8]))
         except:
             raise wsl.ParseError()
+    raise wsl.ParseError()
 
 def parse_ID_domain(line):
     """Parser for ID domain declarations.
