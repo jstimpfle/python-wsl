@@ -1,143 +1,209 @@
 """Module wsl.schema: python class representing WSL database schema"""
 
+
+def _is_string(x):
+    return isinstance(x, str)
+
+
+def _is_list_or_tuple(x):
+    return isinstance(x, list) or isinstance(x, tuple)
+
+
+def _is_tuple_of(tp, x):
+    if not isinstance(x, tuple):
+        return False
+    for y in x:
+        if not isinstance(y, tp):
+            return False
+    return True
+
+
+def _is_dict_of_string_to(tp, x):
+    if not isinstance(x, dict):
+        return False
+    for k, v in x.items():
+        if not isinstance(k, str):
+            return False
+        if not isinstance(v, tp):
+            return False
+    return True
+
+
+def _valid_key_indices(indices, num_columns):
+    if sorted(set(indices)) != list(indices):
+        return False
+    for i in indices:
+        if not 0 <= i < num_columns:
+            return False
+    return True
+
+
+def _valid_foreign_key_indices(ix1, ix2, n1, n2):
+    if len(ix1) != len(ix2):
+        return False
+    if sorted(set(ix1)) != sorted(ix1):
+        return False
+    if sorted(set(ix2)) != sorted(ix2):
+        return False
+    for i in ix1:
+        if not 0 <= i < n1:
+            return False
+    for i in ix2:
+        if not 0 <= i < n2:
+            return False
+    return True
+
+
+class SchemaDomain:
+    """Domain object
+
+    Attributes:
+        name (str): Name of the domain as used e.g. in table declarations.
+        spec (str): Spec of the domain (parameterization from the definition).
+        funcs: function object, holding value decoder and encoder.
+    """
+    def __init__(self, name, spec, funcs):
+        assert _is_string(name)
+        assert _is_string(spec)
+        assert hasattr(funcs, 'decode')
+        assert hasattr(funcs, 'encode')
+
+        self.name = name
+        self.spec = spec
+        self.funcs = funcs
+
+
+class SchemaTable:
+    """Table object
+
+    Attributes:
+        name (str): Name of the table.
+        spec (str): Spec of the table (definition string).
+        columns: A tuple of domain names indicating the columns of the table.
+        colnames: A list containing tuples of column names. The list may be
+            empty. Each tuple must be of the same length as *column*.
+            It holds a possible naming of the columns. Each name may be *None*
+            in which case there is no name availble for the column in this
+            naming.
+            
+    """
+    def __init__(self, name, spec, columns, colnames):
+        assert _is_string(name)
+        assert _is_string(spec)
+        assert _is_tuple_of(str, columns)
+
+        self.name = name
+        self.spec = spec
+        self.columns = columns
+        self.colnames = colnames
+
+
+class SchemaKey:
+    """Unique key object
+
+    Attributes:
+        name (str): Name of the key.
+        spec (str): Spec of the key (definition string).
+        table (str): Name of the table on which the unique key constraint is
+            placed.
+        columns: Tuple of 0-based column indices in strictly ascending order.
+            These are the columns on which the table rows must be unique.
+    """
+    def __init__(self, name, spec, table, columns):
+        assert _is_string(name)
+        assert _is_string(spec)
+        assert _is_string(table)
+        assert _is_tuple_of(int, columns)
+        
+        self.name = name
+        self.spec = spec
+        self.table = table
+        self.columns = columns
+
+
+class SchemaForeignKey:
+    """Foreign key object
+    Attributes:
+        name (str): name of the foreign key.
+        spec (str): Spec of the foreign key (definition string).
+        table (str): Name of the table on which the constraint is placed.
+        columns: Tuple of 0-based column indices in strictly ascending order.
+            These are the columns which serve as index into the foreign table.
+        reftable (str): Name of the foreign table.
+        refcolumns: Tuple of 0-based column indices in strictly ascending
+            order. The number and types of the columns must be identical to
+            those in *columns*.
+    """
+    def __init__(self, name, spec, table, columns, reftable, refcolumns):
+        assert _is_string(name)
+        assert _is_string(spec)
+        assert _is_string(table)
+        assert _is_tuple_of(int, columns)
+        assert _is_string(reftable)
+        assert _is_tuple_of(int, refcolumns)
+
+        self.name = name
+        self.spec = spec
+        self.table = table
+        self.columns = columns
+        self.reftable = reftable
+        self.refcolumns = refcolumns
+
+
 class Schema:
     """Schema information for a WSL database.
 
     Attributes:
-        spec: string containing the textual representation of the schema.
-            This is normally the string that the schema object was parsed from.
-
-        domains: set object, holding the identifiying names of all the domains
-            used in this schema.
-        relations: set object, holding the identifiying names of all the
-            relations used in this schema.
-        keys: set object, holding the identifying names of all the keys used
-            in this schema.
-        references: set object, holding the identifying names of all the
-            references used in this schema.
-
-        spec_of_domain: dict object, mapping each domain name from the
-            *domains* attribute to a textual specification of that domain. It
-            is guaranteed to be a single line (including the terminating
-            newline character).
-        spec_of_relation: dict object, mapping each relation name from the
-            *relations* attribute to a textual specification of that relation.
-            It is guaranteed to be a single line (including the terminating
-            newline character).
-        spec_of_key: dict object, mapping each key name from the *keys*
-            attribute to a textual representation of that key. It is guaranteed
-            to be a single line (including the terminating newline character).
-        spec_of_reference: dict object, mapping each reference name from the
-            *references* attribute to a textual representation of that
-            reference. It is guaranteed to be a single line (including the
-            terminating newline character).
-        object_of_domain: dict object, mapping each domain name from the
-            *domains* attribute to its corresponding domain object.
-        domains_of_relation: dict object, mapping each relation name from the
-            *relations* attribute to a tuple of the names of the columns of
-            that relation (in order).
-        tuple_of_key: dict object, mapping each key name from the *keys*
-            attribute to a tuple *(relation name, 1-based column indices)*.
-            This represents the specification of the key.
-        tuple_of_reference: dict object, mapping each reference name from the
-            *reference* attribute to a tuple *(relation name, column indices,
-            relation name, column indices)*. This represents the reference
-            constraint as (compatible) keys in the local and foreign relation.
-
-        objects_of_relation: dict object, mapping each relation name from the
-            *relations* attribute to a tuple of the domain objects corresponding
-            to the columns of that relation. This attribute is for convenience;
-            it is created in the constructor from the input arguments.
-        
+        spec (str): Textual specification used to construct this schema.
+        domains: A dict mapping domain names to *SchemaDomain* objects.
+        tables: A dict mapping table names to *SchemaTable* objects.
+        keys: A dict mapping unique key names to *SchemaKey* objects.
+        foreignkeys: A dict mapping foreign key names to *SchemaForeignKey* objects.
     """
-    def __init__(self, spec,
-            domains, relations, keys, references,
-            spec_of_domain, spec_of_relation, spec_of_key, spec_of_reference,
-            object_of_domain, domains_of_relation, tuple_of_key, tuple_of_reference):
+    def __init__(self, spec, domains, tables, keys, foreignkeys):
+        assert _is_string(spec)
+        assert _is_dict_of_string_to(SchemaDomain, domains)
+        assert _is_dict_of_string_to(SchemaTable, tables)
+        assert _is_dict_of_string_to(SchemaKey, keys)
+        assert _is_dict_of_string_to(SchemaForeignKey, foreignkeys)
 
-        def is_list_or_tuple(x):
-            return isinstance(x, list) or isinstance(x, tuple)
+        for name, x in domains.items():
+            assert name == x.name
+        for name, x in tables.items():
+            assert name == x.name
+        for name, x in keys.items():
+            assert name == x.name
+        for name, x in foreignkeys.items():
+            assert name == x.name
 
-        def map_set(func, set_):
-            return set(func(x) for x in set_)
+        for table in tables:
+            for domain in tables[table].columns:
+                if domain not in domains:
+                    raise ValueError('Table "%s" has a column of domain "%s" which is not defined' %(table, domain))
 
-        def map_dict(kfunc, vfunc, dict_):
-            return dict({ kfunc(k): vfunc(v) for k, v in dict_.items() })
+        for key in keys:
+            if keys[key].table not in tables:
+                raise ValueError('Unique key "%s" constrains table "%s" which is not defined' %(key, table))
+            if not _valid_key_indices(keys[key].columns, len(tables[table].columns)):
+                raise ValueError('Invalid column specification in key constraint "%s"' %(fkey, table))
 
-        assert isinstance(domains, set)
-        assert isinstance(relations, set)
-        assert isinstance(keys, set)
-        assert isinstance(references, set)
-        assert isinstance(spec_of_domain, dict)
-        assert isinstance(spec_of_relation, dict)
-        assert isinstance(spec_of_key, dict)
-        assert isinstance(spec_of_reference, dict)
-        assert isinstance(object_of_domain, dict)
-        assert isinstance(domains_of_relation, dict)
-        assert isinstance(tuple_of_key, dict)
-        assert isinstance(tuple_of_reference, dict)
+        for fkey in foreignkeys:
+            x = foreignkeys[fkey]
+            table, columns = x.table, x.columns
+            reftable, refcolumns = x.reftable, x.refcolumns
 
-        assert set(domains) == set(spec_of_domain) == set(object_of_domain)
-        assert set(relations) == set(spec_of_relation) == set(domains_of_relation)
-        assert set(keys) == set(spec_of_key) == set(tuple_of_key)
-        assert set(references) == set(spec_of_reference) == set(tuple_of_reference)
+            if table not in tables:
+                raise ValueError('Foreign key "%s" constrains table "%s" which is not defined' %(fkey, table))
+            if reftable not in tables:
+                raise ValueError('Foreign key "%s" references table "%s" which is not defined' %(fkey, reftable))
+            if not _valid_foreign_key_indices(
+                            columns, refcolumns,
+                            len(tables[table].columns),
+                            len(tables[reftable].columns)):
+                raise ValueError('Invalid column specification in foreign key "%s"' %(fkey, table))
 
-        for x in domains: assert isinstance(x, str)
-        for x in relations: assert isinstance(x, str)
-        for x in keys: assert isinstance(x, str)
-        for x in references: assert isinstance(x, str)
-        for x in spec_of_domain.values(): assert isinstance(x, str)
-        for x in spec_of_relation.values(): assert isinstance(x, str)
-        for x in spec_of_key.values(): assert isinstance(x, str)
-        for x in spec_of_reference.values(): assert isinstance(x, str)
-        for x in object_of_domain.values(): pass  # ??
-        for x in domains_of_relation.values(): assert is_list_or_tuple(x)
-        for x in tuple_of_key.values(): assert is_list_or_tuple(x)
-        for x in tuple_of_reference.values(): assert is_list_or_tuple(x)
-
-        self.spec = str(spec)
-        self.domains = map_set(str, domains)
-        self.relations = map_set(str, relations)
-        self.keys = map_set(str, keys)
-        self.references = map_set(str, references)
-        self.spec_of_relation = map_dict(str, str, spec_of_relation)
-        self.spec_of_domain = map_dict(str, str, spec_of_domain)
-        self.spec_of_key = map_dict(str, str, spec_of_key)
-        self.spec_of_reference = map_dict(str, str, spec_of_reference)
-        self.object_of_domain = map_dict(str, lambda x: x, object_of_domain)
-        self.domains_of_relation = map_dict(str, lambda v: tuple(str(x) for x in v), domains_of_relation)
-        self.tuple_of_key = map_dict(str, tuple, tuple_of_key)
-        self.tuple_of_reference = map_dict(str, tuple, tuple_of_reference)
-
-        for rel in self.relations:
-            for d in self.domains_of_relation[rel]:
-                print(d)
-        self.objects_of_relation = dict((rel, tuple(self.object_of_domain[d] for d in self.domains_of_relation[rel])) for rel in self.relations)
-
-    def _debug_str(self):
-        return """
-            domains: %s
-            relations: %s
-            keys: %s
-            references: %s
-            spec_of_relation: %s
-            spec_of_domain: %s
-            spec_of_key: %s
-            spec_of_reference: %s
-            object_of_domain: %s
-            domains_of_relation: %s
-            tuple_of_key: %s
-            tuple_of_reference: %s
-        """ %(
-        self.domains,
-        self.relations,
-        self.keys,
-        self.references,
-        self.spec_of_relation,
-        self.spec_of_domain,
-        self.spec_of_key,
-        self.spec_of_reference,
-        self.object_of_domain,
-        self.domains_of_relation,
-        self.tuple_of_key,
-        self.tuple_of_reference)
+        self.spec = spec
+        self.domains = domains
+        self.tables = tables
+        self.keys = keys
+        self.foreignkeys = foreignkeys
