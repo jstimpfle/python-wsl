@@ -331,16 +331,16 @@ def parse_row(line, objects_of_relation):
 def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_parsers=None):
     """Convenience def to parse a WSL database.
 
-    One, and only one, of *dbfilepath*, *dblines* or *dbstr* should be given.
-
     This parses the schema (from *schemastr* if given, or else as inline schema
     from the database), and then calls *parse_row()* for each line in *lines*.
 
+    One, and only one, of *dbfilepath*, *dblines* or *dbstr* should be given.
+
     Args:
         dbfilepath (str or bytes): Path to the file that contains the database.
-        dblines (iter): An iterable over the (str) lines of the database.
-            This works for all TextIOBase objects, like *sys.stdin* or
-            open()ed files.
+        dblines (iter): An iterable over the (str) lines of the database. This
+            works for all TextIOBase objects, like *sys.stdin* or open()ed
+            files.
         dbstr (str): A string that holds the database.
         schemastr (str): Optional extern schema specification. If *None* is
             given, the schema is expected to be given inline as part of the
@@ -372,9 +372,9 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
             schemalines.append(line.lstrip('% '))
         schemastr = ''.join(line + '\n' for line in schemalines)
     else:
-        # read the first line of input. This is because the other branch
-        # has to read one line of input as well (to recognize the end of
-        # the schema header
+        # read the first line of input. This is because the other branch has to
+        # read one line of input as well, to recognize the end of the schema
+        # header
         for line in lines:
             break
     schema = parse_schema(schemastr, domain_parsers)
