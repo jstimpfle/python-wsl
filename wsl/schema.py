@@ -72,6 +72,9 @@ class SchemaDomain:
         self.spec = spec
         self.funcs = funcs
 
+    def __str__(self):
+        return 'DOMAIN %s %s' %(self.name, self.spec)
+
 
 class SchemaTable:
     """Table object
@@ -97,6 +100,9 @@ class SchemaTable:
         self.columns = columns
         self.colnames = colnames
 
+    def __str__(self):
+        return 'TABLE %s %s' %(self.name, self.spec)
+
 
 class SchemaKey:
     """Unique key object
@@ -119,6 +125,9 @@ class SchemaKey:
         self.spec = spec
         self.table = table
         self.columns = columns
+
+    def __str__(self):
+        return 'KEY %s %s' %(self.name, self.spec)
 
 
 class SchemaForeignKey:
@@ -148,6 +157,9 @@ class SchemaForeignKey:
         self.columns = columns
         self.reftable = reftable
         self.refcolumns = refcolumns
+
+    def __str__(self):
+        return 'REFERENCE %s %s' %(self.name, self.spec)
 
 
 class Schema:
@@ -183,9 +195,9 @@ class Schema:
 
         for key in keys:
             if keys[key].table not in tables:
-                raise ValueError('Unique key "%s" constrains table "%s" which is not defined' %(key, table))
+                raise ValueError('Unique key "%s" constrains table "%s" which is not defined' %(key, keys[key].table))
             if not _valid_key_indices(keys[key].columns, len(tables[table].columns)):
-                raise ValueError('Invalid column specification in key constraint "%s"' %(fkey, table))
+                raise ValueError('Invalid column specification in key constraint "%s"' %(key,))
 
         for fkey in foreignkeys:
             x = foreignkeys[fkey]
@@ -200,7 +212,7 @@ class Schema:
                             columns, refcolumns,
                             len(tables[table].columns),
                             len(tables[reftable].columns)):
-                raise ValueError('Invalid column specification in foreign key "%s"' %(fkey, table))
+                raise ValueError('Invalid column specification in foreign key "%s"' %(fkey,))
 
         self.spec = spec
         self.domains = domains

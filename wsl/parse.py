@@ -241,7 +241,7 @@ def parse_schema(schemastr, domain_parsers=None):
 
     for spec in keyspecs:
         key = parse_key_decl(spec)
-        if key.name in tables:
+        if key.name in keys:
             raise wsl.ParseError('Redeclaration of key "%s" in line: %s' %(key.name, line))
         keys[key.name] = key
 
@@ -263,6 +263,7 @@ def parse_relation_name(line, i):
         i += 1
     return line[x:i], i
 
+
 def parse_space(line, i):
     """Parse a space that separates two tokens in a database tuple line.
 
@@ -274,7 +275,7 @@ def parse_space(line, i):
         i (int): An index into the line where the space is supposed to be.
 
     Returns:
-        int: If the parse succeed, the index of the next character following
+        int: If the parse succeeds, the index of the next character following
             the space.
 
     Raises:
@@ -284,6 +285,7 @@ def parse_space(line, i):
     if i == end or ord(line[i]) != 0x20:
         raise wsl.ParseError('Expected space character in line %s at position %d' %(line, i))
     return i+1
+
 
 def parse_values(line, i, domain_objects):
     """Parse values from line according to *domain_objects*, separated by single spaces.
@@ -308,6 +310,7 @@ def parse_values(line, i, domain_objects):
     if i != end:
         raise wsl.ParseError('Expected EOL at character %d in line %s' %(i+1, line))
     return tuple(vs)
+
 
 def parse_row(line, objects_of_relation):
     """Parse a database tuple (a relation name and according values).
@@ -334,6 +337,7 @@ def parse_row(line, objects_of_relation):
         raise wsl.ParseError('No such table: "%s" while parsing line: %s' %(relation, line))
     values = parse_values(line, i, dos)
     return relation, values
+
 
 def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_parsers=None):
     """Convenience def to parse a WSL database.
@@ -373,58 +377,58 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
     if dbstr is not None:
         lines = dbstr.split('\n')
 
-    lookahead = Ahead(iter(lines))
 
     if schemastr is None:
-        schemastr = split_header(lookahead)
+        schemalines = []
+        for line in lines:
+            if not line.startswith('%'):
+                break
+            schemalines.append(line.lstrip('% '))
+        schemastr = ''.join(line + '\n' for line in schemalines)
+    else:
+        # read the first line of input. This is because the other branch
+        # has to read one line of input as well (to recognize the end of
+        # the schema header
+        for line in lines:
+            braek
+
     schema = parse_schema(schemastr, domain_parsers)
 
     tables = {}
-    for relation in schema.relations:
-        tablename = relation
-        arity = len(schema.domains_of_relation[relation])
+    for tablename in schema.tables:
+        arity = len(schema.tables[tablename].columns)
         keys = {}
-        for keyname, (rel, ix) in schema.tuple_of_key.items():
-            if rel == relation:
-                keys[keyname] = ix
+        for key in schema.keys.values():
+            if key.table == tablename:
+                keys[key.name] = key.columns
         refs = {}
-        for refname, (rel1, ix1, rel2, ix2) in schema.tuple_of_reference.items():
-            if rel1 == relation:
-                refs[refname] = ix1, rel2, ix2
-        tables[relation] = wsl.DbTable(relation, arity, keys=keys, refs=refs)
+        for fkey in schema.foreignkeys.values():
+            if fkey.table == tablename:
+                refs[fkey.table] = fkey.columns, fkey.reftable, fkey.refcolumns
+        tables[tablename] = wsl.DbTable(tablename, arity, keys=keys, refs=refs)
     for t in tables.values():
         t.fix_refs(tables)
 
-    for line in lookahead:
+    objects_of_relation = {}
+    for table in schema.tables.values():
+        objs = []
+        for domainname in table.columns:
+            objs.append(schema.domains[domainname].funcs)
+        objects_of_relation[table.name] = tuple(objs)
+
+    while line is not None:
         line = line.strip()
         if line:
-            r, tup = parse_row(line, schema.objects_of_relation)
+            r, tup = parse_row(line, objects_of_relation)
             tables[r].insert(tup)
+        try:
+            line = next(lines)
+        except StopIteration:
+            line = None
 
     return schema, tables
 
 
-
 if __name__ == '__main__':
     from schema import SchemaTable
-    schema = parse_schema("""
-DOMAIN CityID Int
-DOMAIN CityName String
-DOMAIN CountryCode ID
-DOMAIN CountryCode2 ID
-DOMAIN CountryName String
-DOMAIN District String
-DOMAIN Language String
-DOMAIN IsOfficial Enum T F
-# not implemented: DOMAIN Percentage Decimal scale=1 range=[0.0,100.0]
-DOMAIN Percentage ID
-DOMAIN Population Int
-TABLE City CityID CityName CountryCode District Population
-TABLE Country CountryCode CountryCode2 CountryName
-TABLE Capital CountryCode CityID
-TABLE Language CountryCode Language IsOfficial Percentage
-KEY CountryOfCapital Capital CC *
-REFERENCE CountryOfCapital Capital CC * => Country CC * *
-REFERENCE CityOfCapital Capital * CID => City CID * * * *
-REFERENCE CountryOfLanguage Language CC * * * => Country CC * *
-""")
+    parse_db(dbfilepath='/tmp/test.wsl')

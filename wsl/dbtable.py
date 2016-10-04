@@ -159,9 +159,8 @@ class DbTable:
         idx = self._indices.get(columns)
 
         if idx is None:
-            raise ValueError(
-                'No such index for table %s: %s' %(self.tablename, columns))
-
+            raise ValueError('Missing KEY for table %s on columns %s'
+                    %(self.tablename, columns))
         return idx
 
     def build_indices(self):
