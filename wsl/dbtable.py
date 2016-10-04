@@ -27,13 +27,12 @@ def make_tuple_type(clsname, arity, names=None, refs=None):
     Args:
         clsname (str): Name for the constructed class
         arity (int): length of each tuple instance.
-        names: If not *None*, a list of tuples of length *arity* is expected,
-            where each tuple contains alternative names for the columns of
-            the table. Names can be *None* if only a subset of the columns
-            have names.
-        refs: If not *None*, a dict of abstract foreign keys (as used in
-            the schema module). This will be used later (when the tables are
-            all instanciated) to make properties to jump between tables while
+        names: An optional list of tuples of length *arity*, where each tuple
+            contains alternative names for the columns of the table. Names can
+            be *None* if only a subset of the columns have names.
+        refs: An optional dict of abstract foreign keys (as used in the schema
+            module). This will be used later (when the tables are all
+            instanciated) to make properties to jump between tables while
             following references.
     Returns:
         A new tuple type with the configured properties (field accessors).
