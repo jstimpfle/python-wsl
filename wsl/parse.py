@@ -183,10 +183,8 @@ def parse_schema(schemastr, domain_parsers=None):
     Args:
         schemastr (str): The schema string to parse
         domain_parsers (dict): maps parser names to parsers
-
     Returns:
         wsl.Schema: The parsed schema object
-
     Raises:
         wsl.ParseError: If the parse failed
     """
@@ -272,10 +270,8 @@ def parse_space(line, i):
     Args:
         line (str) : holds a database tuple.
         i (int): An index into the line where the space is supposed to be.
-
     Returns:
         int: If the parse succeeds, the index of the next character following the space.
-
     Raises:
         wsl.ParseError: If no space is found.
     """
@@ -292,10 +288,8 @@ def parse_values(line, i, domain_objects):
         line (str): holds a database tuple.
         i (int): An index into the line where the space is supposed to be.
         domain_objects (dict): dict mapping the name of each domain that is expected in this line to its domain object.
-
     Returns:
         tuple: A tuple containing the parsed values.
-
     Raises:
         wsl.ParseError: The called parsers raise ParseErrors if parsing fails.
     """
@@ -320,10 +314,8 @@ def parse_row(line, objects_of_relation):
         line (str): holds a database tuple.
         objects_of_relation (dict): maps relation names to the list of the
             domain objects of their according columns.
-
     Returns:
         (str, tuple): A 2-tuple (relation, values), i.e. the relation name and a tuple containing the parsed values.
-
     Raises:
         wsl.ParseError: if the parse failed.
     """
@@ -355,12 +347,10 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
             database (each line prefixed with *%*)
         domain_parsers (list): Optional domain parsers for the domains used in
             the database. If not given, the built-in parsers are used.
-
     Returns:
         (wsl.Schema, dict): A 2-tuple *(schema, tuples_of_relation)* consisting
         of the parsed schema and a dict mapping each relation name (in
         *schema.relations*) to a list of database tuples.
-
     Raises:
         wsl.ParseError: if the parse failed.
     """

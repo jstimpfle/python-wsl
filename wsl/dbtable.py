@@ -35,7 +35,6 @@ def make_tuple_type(clsname, arity, names=None, refs=None):
             the schema module). This will be used later (when the tables are
             all instanciated) to make properties to jump between tables while
             following references.
-
     Returns:
         A new tuple type with the configured properties (field accessors).
     """
