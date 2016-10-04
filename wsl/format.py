@@ -14,7 +14,7 @@ def format_schema(schema, escape=False):
     Returns:
         str: The textual representation of the schema. Currently, this is just
         the *spec* attribute of the schema object. If *escape=True*, each line
-        is prepended with a '% ' sequence, so the schema string can be used
+        is prepended with *%*, so the schema string can be used
         inline in a text file.
     """
     if escape:
@@ -34,7 +34,7 @@ def format_values(tup, encoders):
         str: A single line (including the terminating newline character).
 
     Raises:
-        wsl.FormatError: if encoding fails.
+        wsl.FormatError: if formatting fails.
     """
     x = []
     for val, encode in zip(tup, encoders):
@@ -43,7 +43,7 @@ def format_values(tup, encoders):
 
 
 def format_row(relation, tup, encoders):
-    """Encode a WSL database row.
+    """Encode a WSL database tuple (including leading relation name).
 
     Args:
         relation (str): Name of the relation this tuple belongs to.
@@ -63,7 +63,7 @@ def format_row(relation, tup, encoders):
 
 
 def format_db(schema, tuples_of_relation, inline_schema):
-    """Convenience function for encoding a WSL database.
+    """Convenience function for formatting a WSL database.
 
     Args:
         schema (wsl.Schema): The schema of the database.

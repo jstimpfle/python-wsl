@@ -310,8 +310,6 @@ def get_builtin_domain_parsers():
 
     The dict is freshly created, so can be modified by the caller.
 
-    Args:
-
     Returns:
         dict: A dictionary mapping the names of all built-in parsers to the parsers.
     """

@@ -132,6 +132,7 @@ class SchemaKey:
 
 class SchemaForeignKey:
     """Foreign key object
+
     Attributes:
         name (str): name of the foreign key.
         spec (str): Spec of the foreign key (definition string).

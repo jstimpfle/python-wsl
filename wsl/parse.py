@@ -274,8 +274,7 @@ def parse_space(line, i):
         i (int): An index into the line where the space is supposed to be.
 
     Returns:
-        int: If the parse succeeds, the index of the next character following
-            the space.
+        int: If the parse succeeds, the index of the next character following the space.
 
     Raises:
         wsl.ParseError: If no space is found.
@@ -323,8 +322,7 @@ def parse_row(line, objects_of_relation):
             domain objects of their according columns.
 
     Returns:
-        (str, tuple): A 2-tuple (relation, values), i.e. the relation name and a
-            tuple containing the parsed values.
+        (str, tuple): A 2-tuple (relation, values), i.e. the relation name and a tuple containing the parsed values.
 
     Raises:
         wsl.ParseError: if the parse failed.
@@ -344,7 +342,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
     One, and only one, of *dbfilepath*, *dblines* or *dbstr* should be given.
 
     This parses the schema (from *schemastr* if given, or else as inline schema
-    from *lines*), and then calls *parse_row()* for each line in *lines*.
+    from the database), and then calls *parse_row()* for each line in *lines*.
 
     Args:
         dbfilepath (str or bytes): Path to the file that contains the database.

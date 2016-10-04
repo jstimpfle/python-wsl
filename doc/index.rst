@@ -1,3 +1,4 @@
+========================================
 wsl - Python 3 library for WSL databases
 ========================================
 
@@ -5,10 +6,10 @@ This library provides an easy to use API to read and write WSL databases with
 built-in and user-defined datatypes. It uses *str* for parsing and formatting
 throughout.
 
-WARNING: This library is experimental. API changes are to be expected.
+This library is experimental. API changes are to be expected.
 
 The wsl library in 1 minute:
-----------------------------
+============================
 
 Read a WSL database from a file with included schema. The built-in types *ID*
 and *String* are used to construct meaningful domains. These domains in turn
@@ -78,7 +79,7 @@ back to a text string:
     print(txt, end='')
 
 User-defined datatypes
-----------------------
+======================
 
 Custom datatypes are quite easy to add. We need a decoder and an encoder for
 values in database tuples. The decoder gets the line and the position in that
@@ -155,7 +156,28 @@ Now we can parse a database using our custom parser:
     print(txt, end='')
 
 API listing
------------
+===========
+
+Schema
+------
 
 .. automodule:: wsl
-   :members: parse_db, parse_schema, parse_row, parse_values, check_integrity, Schema, format_db, format_row, format_values
+   :members: Schema, SchemaDomain, SchemaTable, SchemaKey, SchemaForeignKey
+
+Exceptions
+----------
+
+.. automodule:: wsl
+   :members: WslError, ParseError, FormatError, IntegrityError
+
+Parsing
+-------
+
+.. automodule:: wsl
+   :members: parse_db, parse_schema, parse_row, parse_values, parse_space, check_integrity, get_builtin_domain_parsers
+
+Formatting
+----------
+
+.. automodule:: wsl
+   :members: format_db, format_schema, format_row, format_values
