@@ -1,11 +1,11 @@
 class WslError(Exception):
-    pass
+    """Base class for all WSL exceptions"""
 
 class ParseError(WslError):
-    pass
+    """Raised on database parsing errors"""
 
 class FormatError(WslError):
-    pass
+    """Raised on database formatting errors"""
 
 class IntegrityError(WslError):
-    pass
+    """Raised on database inconsistencies"""

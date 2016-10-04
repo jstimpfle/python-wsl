@@ -219,3 +219,15 @@ class Schema:
         self.tables = tables
         self.keys = keys
         self.foreignkeys = foreignkeys
+
+    def __str__(self):
+        out = []
+        for x in self.domains:
+            out.append(x)
+        for x in self.tables:
+            out.append(x)
+        for x in self.keys:
+            out.append(x)
+        for x in self.foreignkeys:
+            out.append(x)
+        return ''.join(line + '\n' for line in out)

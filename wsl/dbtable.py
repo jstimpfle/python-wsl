@@ -39,7 +39,6 @@ def make_tuple_type(clsname, arity, names=None, refs=None):
     Returns:
         A new tuple type with the configured properties (field accessors).
     """
-
     if names is None:
         names = []
     if refs is None:
@@ -112,7 +111,6 @@ def make_tuple_type(clsname, arity, names=None, refs=None):
     clsprops['get_some_columns'] = get_some_columns
 
     return type(clsname, (tuple,), clsprops)
-
 
 
 class DbTable:

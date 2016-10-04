@@ -2,6 +2,7 @@
 
 import wsl
 
+
 def format_schema(schema, escape=False):
     """Encode a schema object as a WSL schema string.
 
@@ -21,6 +22,7 @@ def format_schema(schema, escape=False):
     else:
         return schema.spec
 
+
 def format_values(tup, encoders):
     """Encode a WSL database tuple (without leading relation name)
 
@@ -38,6 +40,7 @@ def format_values(tup, encoders):
     for val, encode in zip(tup, encoders):
         x.append(encode(val))
     return ' '.join(x) + '\n'
+
 
 def format_row(relation, tup, encoders):
     """Encode a WSL database row.
@@ -57,6 +60,7 @@ def format_row(relation, tup, encoders):
     for val, encode in zip(tup, encoders):
         x.append(encode(val))
     return ' '.join(x) + '\n'
+
 
 def format_db(schema, tuples_of_relation, inline_schema):
     """Convenience function for encoding a WSL database.

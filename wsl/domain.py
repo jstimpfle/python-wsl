@@ -19,6 +19,7 @@ type that *decode* returns, and returns a string holding the serialized value. A
 
 import wsl
 
+
 def split_opts(line):
     opts = []
     for word in line.split():
@@ -29,6 +30,7 @@ def split_opts(line):
         opts.append((key, val, word))
     return opts
 
+
 def hex2dec(c):
     x = ord(c)
     if 0x30 <= x <= 0x39:
@@ -37,10 +39,12 @@ def hex2dec(c):
         return x - 0x57
     raise wsl.ParseError('Not a valid hexadecimal character: %c' %(c,))
 
+
 def parse_hex(chars):
     if len(chars) >= 2:
         return hex2dec(chars[0])*16 + hex2dec(chars[1])
     raise wsl.ParseError()
+
 
 def parse_unicode(chars):
     if len(chars) >= 4:
@@ -50,6 +54,7 @@ def parse_unicode(chars):
             raise wsl.ParseError()
     raise wsl.ParseError()
 
+
 def parse_Unicode(chars):
     if len(chars) >= 8:
         try:
@@ -57,6 +62,7 @@ def parse_Unicode(chars):
         except:
             raise wsl.ParseError()
     raise wsl.ParseError()
+
 
 def parse_ID_domain(line):
     """Parser for ID domain declarations.
@@ -69,6 +75,7 @@ def parse_ID_domain(line):
         decode = ID_decode
         encode = ID_encode
     return IDDomain
+
 
 def parse_String_domain(line):
     opts = split_opts(line)
@@ -83,6 +90,7 @@ def parse_String_domain(line):
         encode = make_String_encode(escape)
     return StringDomain
 
+
 def parse_Int_domain(line):
     if line:
         raise wsl.ParseError('Construction of Integer domain does not receive any arguments')
@@ -90,6 +98,7 @@ def parse_Int_domain(line):
         decode = Int_decode
         encode = Int_encode
     return IntDomain
+
 
 def parse_Enum_domain(line):
     values = line.split()
@@ -99,6 +108,7 @@ def parse_Enum_domain(line):
         encode = make_Enum_encode(options)
     return EnumDomain
 
+
 def parse_IPv4_domain(line):
     if line.strip():
         raise wsl.ParseError('IPv4 domain doesn\'t take any arguments')
@@ -106,6 +116,7 @@ def parse_IPv4_domain(line):
         decode = IPv4_decode
         encode = IPv4_encode
     return IPv4
+
 
 def ID_decode(line, i):
     """Value decoder for ID domain"""
@@ -117,12 +128,14 @@ def ID_decode(line, i):
         raise wsl.ParseError('EOL or invalid character while expecting ID at character %d in line "%s"' %(i+1, line))
     return (line[x:i], i)
 
+
 def ID_encode(idval):
     """Value encoder for ID domain"""
     for c in idval:
         if ord(c) < 0x20 or ord(c) in [0x20, 0x5b, 0x5d, 0x7f]:
             raise wsl.FormatError('Disallowed character %c in ID value: %s' %(c, idval))
     return idval
+
 
 def make_String_decode(escape):
     if escape:
@@ -181,6 +194,7 @@ def make_String_decode(escape):
             return (line[x:i], i+1)
     return String_decode
 
+
 def make_String_encode(escape):
     if escape:
         def String_encode(string):
@@ -206,6 +220,7 @@ def make_String_encode(escape):
             return '[' + string + ']'
     return String_encode
 
+
 def Int_decode(line, i):
     """Value decoder for Int domain"""
     end = len(line)
@@ -220,9 +235,11 @@ def Int_decode(line, i):
         i += 1
     return (n, i)
 
+
 def Int_encode(integer):
     """Value encoder for Int domain"""
     return str(integer)
+
 
 def make_Enum_decode(options):
     def Enum_decode(line, i):
@@ -241,12 +258,14 @@ def make_Enum_decode(options):
         raise wsl.ParseError('Invalid token "%s" at line "%s" character %d; valid tokens are %s' %(token, line, i, ','.join(y for x, y in options)))
     return Enum_decode
 
+
 def make_Enum_encode(options):
     def Enum_encode(value):
         """Value encoder for Enum domain"""
         i, token = value
         return token
     return Enum_encode
+
 
 def IPv4_decode(line, i):
     end = len(line)
@@ -266,6 +285,7 @@ def IPv4_decode(line, i):
             pass
     raise wsl.ParseError('IPv4 address must be 4-tuple of 1 byte integers (0-255)')
 
+
 def IPv4_encode(ip):
     try:
         a,b,c,d = ip
@@ -283,6 +303,7 @@ _builtin_domain_parsers = {
     'Int': parse_Int_domain,
     'IPv4': parse_IPv4_domain,
 }
+
 
 def get_builtin_domain_parsers():
     """Get a dict containing all domain parsers built-in to this library.

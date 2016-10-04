@@ -2,6 +2,7 @@
 
 import wsl
 
+
 def _is_lowercase(c):
     return 0x61 <= ord(c) <= 0x7a
 
@@ -60,7 +61,6 @@ def parse_table_decl(line):
     Raises:
         wsl.ParseError: If the parse failed.
     """
-
     ws = line.split()
     if not ws:
         raise wsl.ParseError('Failed to parse table declaration: %s' %(line,))
@@ -120,7 +120,6 @@ def parse_foreignkey_decl(line, tables):
     Raises:
         wsl.ParseError: If the parse failed
     """
-
     ws = line.split(None, 1)
     if len(ws) < 2:
         raise wsl.ParseError('Failed to parse REFERENCE declaration "%s": Need a name and a datatype' %(line,))
@@ -144,12 +143,12 @@ def parse_foreignkey_decl(line, tables):
 
     rws = parts[1].split(None, 1)
     if len(rws) != 2:
-        raise wsl.ParseError('Could not parse left-hand side of REFERENCE constraint "%s"' %(line,))
+        raise wsl.ParseError('Could not parse right-hand side of REFERENCE constraint "%s"' %(line,))
     table2, vs2 = rws[0], rws[1].split()
     if table2 not in tables:
         raise wsl.ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table1, line))
     if len(vs2) != len(tables[table2].columns):
-        raise wsl.ParseError('Wrong number of columns on left-hand side of REFERENCE constraint "%s"' %(line,))
+        raise wsl.ParseError('Wrong number of columns on right-hand side of REFERENCE constraint "%s"' %(line,))
 
     d1, d2 = {}, {}
 
@@ -171,6 +170,7 @@ def parse_foreignkey_decl(line, tables):
     if sorted(d1.keys()) != sorted(d2.keys()):
         raise wsl.ParseError('Different variables used on both sides of "=>" while parsing REFERENCE constraint "%s %s"' %(name, spec))
 
+    # use maps to pair columns
     ix1 = tuple(i for _, i in sorted(d1.items()))
     ix2 = tuple(i for _, i in sorted(d2.items()))
 
@@ -215,7 +215,6 @@ def parse_schema(schemastr, domain_parsers=None):
             raise wsl.ParseError('Failed to parse line: %s' %(line,))
 
         kw, spec = ws
-
         if kw == 'DOMAIN':
             domainspecs.add(spec)
         elif kw == 'TABLE':
@@ -377,7 +376,6 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
     if dbstr is not None:
         lines = dbstr.split('\n')
 
-
     if schemastr is None:
         schemalines = []
         for line in lines:
@@ -390,8 +388,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
         # has to read one line of input as well (to recognize the end of
         # the schema header
         for line in lines:
-            braek
-
+            break
     schema = parse_schema(schemastr, domain_parsers)
 
     tables = {}
