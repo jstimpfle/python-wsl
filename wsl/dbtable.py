@@ -15,7 +15,7 @@ def make_tuple_type(clsname, arity, names=None, refs=None):
 
     Example:
 
-        >>> Person = make_tuple_type('Person', 2, ('givenname', 'surname'))
+        >>> Person = make_tuple_type('Person', 2, [('givenname', 'surname')])
         >>> person = Person('John', 'Doe')
         >>> person[0], person[1]
         ('John', 'Doe')
