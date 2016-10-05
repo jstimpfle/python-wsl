@@ -23,9 +23,9 @@ string type.  Its advantage is having separate opening and closing delimiters.
     % DOMAIN Comment String
     % TABLE person Person Comment
     % TABLE parent Person Person
-    % KEY person P *
-    % REFERENCE parent P * => person P *
-    % REFERENCE parent * P => person P *
+    % KEY Person person P *
+    % REFERENCE PersonAOfParent parent P * => person P *
+    % REFERENCE PersonBOfParent parent * P => person P *
     person foo [Foo Bar]
     parent foo bar
 
@@ -33,13 +33,10 @@ string type.  Its advantage is having separate opening and closing delimiters.
 
     import wsl
 
-    filepath = "db.wsl"
-    schema, tables = wsl.parse_db(dbfilepath=filepath, schemastr=None, domain_parsers=None)
-    print(tables['person'])
-    print(tables['parent'])
-    problems = wsl.check_integrity(schema, tables)
-    for x in problems:
-        print(x)
+    dbfilepath = "db.wsl"
+    db = wsl.parse_db(dbfilepath=dbfilepath, schemastr=None, domain_parsers=None)
+    print(db['person'])
+    print(db['parent'])
 
 Read a WSL database from a python3 string. Here, the schema is given
 separately.
@@ -48,34 +45,31 @@ separately.
 
     import wsl
 
-    sch = """\
+    schemastr = """\
     DOMAIN Person ID
     DOMAIN Comment String
     TABLE person Person Comment
     TABLE parent Person Person
-    KEY person P *
-    REFERENCE parent P * => person P *
-    REFERENCE parent * P => person P *
+    KEY Person person P *
+    REFERENCE PersonAOfParent parent P * => person P *
+    REFERENCE PersonBOfParent parent * P => person P *
     """
 
-    db = """\
+    dbstr = """\
     person foo [Foo Bar]
     parent foo bar
     """
 
-    schema, tables = wsl.parse_db(dbstr=db, schemastr=sch, domain_parsers=None)
-    print(tables['person'])
-    print(tables['parent'])
-    problems = wsl.check_integrity(schema, tables)
-    for x in problems:
-        print(x)
+    db = wsl.parse_db(dbstr=dbstr, schemastr=schemastr, domain_parsers=None)
+    print(db['person'])
+    print(db['parent'])
 
 Given a parsed schema and a suitable tables dict, we can encode the database
 back to a text string:
 
 .. code:: python3
 
-    txt = wsl.format_db(schema, tables, inline_schema=True)
+    txt = wsl.format_db(db, inline_schema=True)
     print(txt, end='')
 
 User-defined datatypes
@@ -139,20 +133,20 @@ Now we can parse a database using our custom parser:
 
 .. code:: python3
 
-    sch = """\
+    schemastr = """\
     DOMAIN Filename String
     DOMAIN Data Base64
     TABLE pic Filename Data
     """
 
-    db = """\
+    dbstr = """\
     pic [cat.png] bGDOgm10Dm+5ZPjfNmuP4kalHWUlqT3ZAK7WdP9QniET60y5aO4WmxDCxZUTD/IKOrC2DTSLSb/tLWkb7AyYfP1oMqdw08AFEVTdl8EEA2xldYPF4FY9WB5N+87Ymmjo7vVMpiFvcMJkZZv0zOQ6eeMpCUH2MoTPrrkTHOHx/yPA2hO32gKnOGpoCZQ7q6wUS/M1oHd6DRu1CyIMeJTAZAQjJz74oYAfr8Qt1GOWVswzLkojZlODE1WcVt8nrfm3+Kj3YNS43g2zNGwf7mb2Z7OZwzMqtQNnCuDJgXN3
     """
 
     dps = wsl.get_builtin_domain_parsers()
     dps['Base64'] = parse_Base64_domain
-    schema, tables = wsl.parse_db(dbstr=db, schemastr=sch, domain_parsers=dps)
-    txt = wsl.format_db(schema, tables, inline_schema=True)
+    db = wsl.parse_db(dbstr=dbstr, schemastr=schemastr, domain_parsers=dps)
+    txt = wsl.format_db(db, inline_schema=True)
     print(txt, end='')
 
 API listing
@@ -164,6 +158,13 @@ Schema
 .. automodule:: wsl
    :members: Schema, SchemaDomain, SchemaTable, SchemaKey, SchemaForeignKey
 
+
+Database
+--------
+
+.. autoclass:: wsl.Database
+   :members: __init__
+
 Exceptions
 ----------
 
@@ -174,7 +175,7 @@ Parsing
 -------
 
 .. automodule:: wsl
-   :members: parse_db, parse_schema, parse_row, parse_values, parse_space, check_integrity, get_builtin_domain_parsers
+   :members: parse_db, parse_schema, parse_row, parse_values, parse_space, get_builtin_domain_parsers
 
 Formatting
 ----------

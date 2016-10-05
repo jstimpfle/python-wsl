@@ -22,8 +22,8 @@ def format_schema(schema, escape=False):
         return schema.spec
 
 
-def format_values(tup, encoders):
-    """Encode a WSL database tuple (without leading relation name)
+def format_values(row, encoders):
+    """Encode a WSL database row (without leading table name)
 
     Args:
         tup (tuple): Some values to encode
@@ -39,50 +39,47 @@ def format_values(tup, encoders):
     return ' '.join(x) + '\n'
 
 
-def format_row(relation, tup, encoders):
-    """Encode a WSL database tuple (including leading relation name).
+def format_row(table, row, encoders):
+    """Encode a WSL database row (including leading table name).
 
     Args:
-        relation (str): Name of the relation this tuple belongs to.
-        tup (tuple): Values according to the columns of *relation*
-        encoders (tuple): Encoders according to the columns of *relation*
+        table (str): Name of the table this row belongs to.
+        row (tuple): Values according to the columns of *table*
+        encoders (tuple): Encoders according to the columns of *table*
     Returns:
         str: A single line (including the terminating newline character).
     Raises:
         wsl.FormatError: if formatting fails.
     """
-    x = [relation]
-    for val, encode in zip(tup, encoders):
+    x = [table]
+    for val, encode in zip(row, encoders):
         x.append(encode(val))
     return ' '.join(x) + '\n'
 
 
-def format_db(schema, tuples_of_relation, inline_schema):
+def format_db(db, inline_schema):
     """Convenience function for formatting a WSL database.
 
     Args:
-        schema (wsl.Schema): The schema of the database.
-        tuples_of_relation (dict): A dictionary that maps each relation name in
-            *schema.relations* to a list that contains all the rows of that
-            relation.
+        db (wsl.Database): The database to format.
     Returns:
         An iterator yielding chunks of encoded text.
         If *inline_schema* is True, the first chunk is the textual
         representation of the schema, each line being escaped with %
         as required for WSL inline notation.
-        Each following yielded chunk is the result of encoding one tuple
-        of the database (as returned by *format_row()*).
+        Each following yielded chunk is the result of encoding one row of the
+        database (as returned by *format_row()*).
     Raises:
         wsl.FormatError: if formatting fails.
     """
     if inline_schema:
         yield format_schema(schema, escape=True)
-    for relation in sorted(tuples_of_relation.keys()):
+    for table in db.tables:
         encoders = []
-        for x in schema.domains_of_relation[relation]:
-            encoders.append(schema.object_of_domain[x].encode)
+        for x in db.schema.tables[table]:
+            encoders.append(x.funcs.encode)
         try:
-            for tup in sorted(tuples_of_relation[relation]):
-                yield format_row(relation, tup, encoders)
+            for row in db.tables[table]:
+                yield format_row(table, row, encoders)
         except wsl.FormatError as e:
-            raise wsl.FormatError('Failed to format tuple %s' % (tup,)) from e
+            raise wsl.FormatError('Failed to format database row %s' % (row,)) from e

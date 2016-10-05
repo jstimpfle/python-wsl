@@ -18,4 +18,4 @@ from .schema import SchemaTable
 from .schema import SchemaKey
 from .schema import SchemaForeignKey
 from .schema import Schema
-from .dbtable import DbTable
+from .db import Database

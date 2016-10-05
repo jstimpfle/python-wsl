@@ -348,9 +348,7 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
         domain_parsers (list): Optional domain parsers for the domains used in
             the database. If not given, the built-in parsers are used.
     Returns:
-        (wsl.Schema, dict): A 2-tuple *(schema, tuples_of_relation)* consisting
-        of the parsed schema and a dict mapping each relation name (in
-        *schema.relations*) to a list of database tuples.
+        wsl.Database: The parsed Database object
     Raises:
         wsl.ParseError: if the parse failed.
     """
@@ -360,9 +358,9 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
     if dbfilepath is not None:
         lines = open(dbfilepath, "r", encoding="utf-8", newline='\n')
     if dblines is not None:
-        lines = dblines
+        lines = iter(dblines)
     if dbstr is not None:
-        lines = dbstr.split('\n')
+        lines = iter(dbstr.split('\n'))
 
     if schemastr is None:
         schemalines = []
@@ -377,22 +375,8 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
         # header
         for line in lines:
             break
-    schema = parse_schema(schemastr, domain_parsers)
 
-    tables = {}
-    for tablename in schema.tables:
-        arity = len(schema.tables[tablename].columns)
-        keys = {}
-        for key in schema.keys.values():
-            if key.table == tablename:
-                keys[key.name] = key.columns
-        refs = {}
-        for fkey in schema.foreignkeys.values():
-            if fkey.table == tablename:
-                refs[fkey.table] = fkey.columns, fkey.reftable, fkey.refcolumns
-        tables[tablename] = wsl.DbTable(tablename, arity, keys=keys, refs=refs)
-    for t in tables.values():
-        t.fix_refs(tables)
+    schema = parse_schema(schemastr, domain_parsers)
 
     objects_of_relation = {}
     for table in schema.tables.values():
@@ -401,17 +385,21 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
             objs.append(schema.domains[domainname].funcs)
         objects_of_relation[table.name] = tuple(objs)
 
+    db = wsl.Database(schema)
+
     while line is not None:
         line = line.strip()
         if line:
-            r, tup = parse_row(line, objects_of_relation)
-            tables[r].insert(tup)
+            table, tup = parse_row(line, objects_of_relation)
+            db.insert(table, tup)
         try:
             line = next(lines)
         except StopIteration:
             line = None
 
-    return schema, tables
+    db.build_indices()
+
+    return db
 
 
 if __name__ == '__main__':
