@@ -16,8 +16,15 @@ def _is_digit(c):
 
 
 def _is_identifier(x):
-    return (x and (_is_lowercase(x[0]) or _is_uppercase(x[0]))
-             and all(_is_lowercase(c) or _is_uppercase(c) or c == '_' for c in x[1:]))
+    if not x:
+        return False
+    if not _is_lowercase(x[0]) and not _is_uppercase(x[0]):
+        return False
+    for c in x[1:]:
+        if (not _is_lowercase(c) and not _is_uppercase(c)
+            and not _is_digit(c) and not c == '_'):
+            return False
+    return True
 
 
 def _is_variable(v):

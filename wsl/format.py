@@ -62,6 +62,7 @@ def format_db(db, inline_schema):
 
     Args:
         db (wsl.Database): The database to format.
+        inline_schema (bool): Whether to include the schema (in escaped form).
     Returns:
         An iterator yielding chunks of encoded text.
         If *inline_schema* is True, the first chunk is the textual
@@ -73,11 +74,11 @@ def format_db(db, inline_schema):
         wsl.FormatError: if formatting fails.
     """
     if inline_schema:
-        yield format_schema(schema, escape=True)
+        yield format_schema(db.schema, escape=True)
     for table in db.tables:
         encoders = []
-        for x in db.schema.tables[table]:
-            encoders.append(x.funcs.encode)
+        for x in db.schema.tables[table].columns:
+            encoders.append(db.schema.domains[x].funcs.encode)
         try:
             for row in db.tables[table]:
                 yield format_row(table, row, encoders)

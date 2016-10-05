@@ -1,4 +1,4 @@
-"""Module wsl.db: Database instances and tuples that can follow references"""
+"""Module wsl.database: Database instances and tuples that can follow references"""
 
 import wsl
 
@@ -80,7 +80,6 @@ class Database:
             assert fkeyname in schema.foreignkeys
 
         tuple_types = {}
-
         for tablename in schema.tables:
             tuple_types[tablename] = make_dbtuple_type(tablename)
 
