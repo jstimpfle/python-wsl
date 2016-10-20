@@ -132,10 +132,6 @@ class Database:
                 keycolumns = tuple(row[i] for i in columns)
                 idx[keycolumns] = row
 
-    def __getitem__(self, item):
-        """Allow retrieving tables of a database instance by indexing."""
-        return self.tables[item]
-
 
 if __name__ == '__main__':
     row = ('foo', 'bar', 'baz')
