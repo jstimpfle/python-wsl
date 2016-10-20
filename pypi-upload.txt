@@ -1,0 +1,15 @@
+What to do to release a new version to pypi:
+
+(Source: https://packaging.python.org/distributing/)
+
+Change to project directory
+Update version in setup.py
+Better also update version in doc/conf.py
+
+$ python3 setup.py bdist sdist
+
+Packages should now be in $PROJECTDIR/dist/
+
+For uploading to PyPi:
+- need ~/.pypirc with correct credentials
+$ twine upload dist/*
