@@ -101,11 +101,14 @@ def parse_Int_domain(line):
 
 
 def parse_Enum_domain(line):
-    values = line.split()
-    options = list(enumerate(values))
+    strings = line.split()
+    base = EnumBase(strings)
+    values = []
+    for s in strings:
+        values.append(EnumValue(base, s))
     class EnumDomain:
-        decode = make_Enum_decode(options)
-        encode = make_Enum_encode(options)
+        decode = make_Enum_decode(values)
+        encode = make_Enum_encode(values)
     return EnumDomain
 
 
@@ -241,32 +244,6 @@ def Int_encode(integer):
     return str(integer)
 
 
-def make_Enum_decode(options):
-    def Enum_decode(line, i):
-        """Value decoder for Enum domain"""
-        end = len(line)
-        x = i
-        while i < end and 0x21 < ord(line[i]) and ord(line[i]) != 0x7f:
-            i += 1
-        if x == i:
-            raise wsl.ParseError('Did not find expected token at line "%s" character %d' %(line, i))
-        token = line[x:i]
-        for option in options:
-            v, t = option
-            if t == token:
-                return (option, i)
-        raise wsl.ParseError('Invalid token "%s" at line "%s" character %d; valid tokens are %s' %(token, line, i, ','.join(y for x, y in options)))
-    return Enum_decode
-
-
-def make_Enum_encode(options):
-    def Enum_encode(value):
-        """Value encoder for Enum domain"""
-        i, token = value
-        return token
-    return Enum_encode
-
-
 def IPv4_decode(line, i):
     end = len(line)
     x = i
@@ -295,6 +272,72 @@ def IPv4_encode(ip):
         return '%d.%d.%d.%d' %ip
     except ValueError as e:
         raise wsl.FormatError('Not a valid ip address (need 4-tuple of integers in [0,255])')
+
+
+class EnumBase:
+    """An enumeration type. Essentially a list of possible identifiers"""
+    def __init__(self, strings):
+        self.strings = list(strings)
+
+
+class EnumValue:
+    """An option representing a particular choice of value for a given Enum"""
+    def __init__(self, base, string):
+        self.base = base
+        self.string = string
+        self.integer = base.strings.index(string)
+
+    def __repr__(self):
+        return self.string
+
+    def __str__(self):
+        return self.string
+
+    def __hash__(self):
+        return self.integer
+
+    def __eq__(self, other):
+        return self.integer == other.integer
+
+    def __ne__(self, other):
+        return self.integer != other.integer
+
+    def __le__(self, other):
+        return self.integer <= other.integer
+
+    def __ge__(self, other):
+        return self.integer >= other.integer
+
+    def __lt__(self, other):
+        return self.integer < other.integer
+
+    def __gt__(self, other):
+        return self.integer > other.integer
+
+
+def make_Enum_decode(values):
+    def Enum_decode(line, i):
+        """Value decoder for Enum domain"""
+        end = len(line)
+        x = i
+        while i < end and 0x21 < ord(line[i]) and ord(line[i]) != 0x7f:
+            i += 1
+        if x == i:
+            raise wsl.ParseError('Did not find expected token at line "%s" character %d' %(line, i))
+        token = line[x:i]
+        for value in values:
+            if value.string == token:
+                return (value, i)
+        raise wsl.ParseError('Invalid token "%s" at line "%s" character %d; valid tokens are %s' %(token, line, i, ','.join(y for x, y in options)))
+    return Enum_decode
+
+
+def make_Enum_encode(options):
+    def Enum_encode(value):
+        """Value encoder for Enum domain"""
+        return value.string
+    return Enum_encode
+
 
 _builtin_domain_parsers = {
     'ID': parse_ID_domain,
