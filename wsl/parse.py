@@ -52,7 +52,7 @@ def parse_domain_decl(line, domain_parsers):
     param = ws[1] if len(ws) > 1 else ''
     parser = domain_parsers.get(parsername)
     if parser is None:
-        raise wsl.ParseError('Parser "%s" not available while parsing DOMAIN declaration' %(parser_name,))
+        raise wsl.ParseError('Parser "%s" not available while parsing DOMAIN declaration' %(parsername,))
 
     funcs = parser(param)
     return wsl.SchemaDomain(domainname, spec, funcs)
