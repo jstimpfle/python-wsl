@@ -153,7 +153,7 @@ def parse_foreignkey_decl(line, tables):
         raise wsl.ParseError('Could not parse right-hand side of REFERENCE constraint "%s"' %(line,))
     table2, vs2 = rws[0], rws[1].split()
     if table2 not in tables:
-        raise wsl.ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table1, line))
+        raise wsl.ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table2, line))
     if len(vs2) != len(tables[table2].columns):
         raise wsl.ParseError('Wrong number of columns on right-hand side of REFERENCE constraint "%s"' %(line,))
 

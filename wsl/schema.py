@@ -189,31 +189,27 @@ class Schema:
         for name, x in foreignkeys.items():
             assert name == x.name
 
-        for table in tables:
-            for domain in tables[table].columns:
+        for table in tables.values():
+            for domain in table.columns:
                 if domain not in domains:
-                    raise ValueError('Table "%s" has a column of domain "%s" which is not defined' %(table, domain))
+                    raise ValueError('Table "%s" has a column of domain "%s" which is not defined' %(table.name, domain))
 
-        for key in keys:
-            if keys[key].table not in tables:
-                raise ValueError('Unique key "%s" constrains table "%s" which is not defined' %(key, keys[key].table))
-            if not _valid_key_indices(keys[key].columns, len(tables[table].columns)):
+        for key in keys.values():
+            if key.table not in tables:
+                raise ValueError('Unique key "%s" constrains table "%s" which is not defined' %(key.name, key.table))
+            if not _valid_key_indices(key.columns, len(tables[key.table].columns)):
                 raise ValueError('Invalid column specification in key constraint "%s"' %(key,))
 
-        for fkey in foreignkeys:
-            x = foreignkeys[fkey]
-            table, columns = x.table, x.columns
-            reftable, refcolumns = x.reftable, x.refcolumns
-
-            if table not in tables:
-                raise ValueError('Foreign key "%s" constrains table "%s" which is not defined' %(fkey, table))
-            if reftable not in tables:
-                raise ValueError('Foreign key "%s" references table "%s" which is not defined' %(fkey, reftable))
+        for fkey in foreignkeys.values():
+            if fkey.table not in tables:
+                raise ValueError('Foreign key "%s" constrains table "%s" which is not defined' %(fkey.name, fkey.table))
+            if fkey.reftable not in tables:
+                raise ValueError('Foreign key "%s" references table "%s" which is not defined' %(fkey.name, fkey.reftable))
             if not _valid_foreign_key_indices(
-                            columns, refcolumns,
-                            len(tables[table].columns),
-                            len(tables[reftable].columns)):
-                raise ValueError('Invalid column specification in foreign key "%s"' %(fkey,))
+                            fkey.columns, fkey.refcolumns,
+                            len(tables[fkey.table].columns),
+                            len(tables[fkey.reftable].columns)):
+                raise ValueError('Invalid column specification in foreign key "%s"' %(fkey.name,))
 
         self.spec = spec
         self.domains = domains
