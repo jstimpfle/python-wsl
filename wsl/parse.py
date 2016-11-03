@@ -335,19 +335,16 @@ def parse_row(line, objects_of_relation):
     return relation, values
 
 
-def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_parsers=None):
+def parse_db(dbfilepath=None, dbstr=None, schemastr=None, domain_parsers=None):
     """Convenience def to parse a WSL database.
 
     This parses the schema (from *schemastr* if given, or else as inline schema
     from the database), and then calls *parse_row()* for each line in *lines*.
 
-    One, and only one, of *dbfilepath*, *dblines* or *dbstr* should be given.
+    One, and only one, of *dbfilepath* or *dbstr* should be given.
 
     Args:
-        dbfilepath (str or bytes): Path to the file that contains the database.
-        dblines (iter): An iterable over the (str) lines of the database. This
-            works for all TextIOBase objects, like *sys.stdin* or open()ed
-            files.
+        dbfilepath (str): Path to the file that contains the database.
         dbstr (str): A string that holds the database.
         schemastr (str): Optional extern schema specification. If *None* is
             given, the schema is expected to be given inline as part of the
@@ -359,29 +356,26 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
     Raises:
         wsl.ParseError: if the parse failed.
     """
-    if int(dbfilepath is not None) + int(dblines is not None) + int(dbstr is not None) != 1:
+    if not ((dbfilepath is not None) ^ (dbstr is not None)):
         raise ValueError('parse_db() needs exactly one of dbfilepath, dblines or dbstr')
 
     if dbfilepath is not None:
-        lines = open(dbfilepath, "r", encoding="utf-8", newline='\n')
-    if dblines is not None:
-        lines = iter(dblines)
+        lines = iter(open(dbfilepath, "r", encoding="utf-8", newline='\n').read().splitlines())
     if dbstr is not None:
-        lines = iter(dbstr.split('\n'))
+        lines = iter(dbstr.splitlines())
+
+    # indicate whether a database row was read after reading the schema
+    havedbrow = False
+    line = None
 
     if schemastr is None:
         schemalines = []
         for line in lines:
             if not line.startswith('%'):
+                havedbrow = True
                 break
             schemalines.append(line.lstrip('% '))
         schemastr = ''.join(line + '\n' for line in schemalines)
-    else:
-        # read the first line of input. This is because the other branch has to
-        # read one line of input as well, to recognize the end of the schema
-        # header
-        for line in lines:
-            break
 
     schema = parse_schema(schemastr, domain_parsers)
 
@@ -394,6 +388,13 @@ def parse_db(dbfilepath=None, dblines=None, dbstr=None, schemastr=None, domain_p
 
     db = wsl.Database(schema)
 
+    # iteration over the lines of the database rows is messy here because we
+    # might have read the first line already
+    if not havedbrow:
+        try:
+            line = next(lines)
+        except StopIteration:
+            line = None
     while line is not None:
         line = line.strip()
         if line:
