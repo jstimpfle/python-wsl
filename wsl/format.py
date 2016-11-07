@@ -75,12 +75,12 @@ def format_db(db, inline_schema):
     """
     if inline_schema:
         yield format_schema(db.schema, escape=True)
-    for table in db.tables:
+    for table in sorted(db.tables):
         encoders = []
         for x in db.schema.tables[table].columns:
             encoders.append(db.schema.domains[x].funcs.encode)
         try:
-            for row in db.tables[table]:
+            for row in sorted(db.tables[table]):
                 yield format_row(table, row, encoders)
         except wsl.FormatError as e:
             raise wsl.FormatError('Failed to format database row %s' % (row,)) from e
