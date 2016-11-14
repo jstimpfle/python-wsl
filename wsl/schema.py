@@ -29,11 +29,12 @@ def _is_dict_of_string_to(tp, x):
     return True
 
 
-def _valid_key_indices(indices, num_columns):
-    if sorted(set(indices)) != list(indices):
-        return False
-    for i in indices:
+def _valid_key_columns(columns, num_columns):
+    for i in columns:
         if not 0 <= i < num_columns:
+            return False
+    for i, j in zip(columns, columns[1:]):
+        if not i < j:
             return False
     return True
 
@@ -88,7 +89,6 @@ class SchemaTable:
             It holds a possible naming of the columns. Each name may be *None*
             in which case there is no name availble for the column in this
             naming.
-            
     """
     def __init__(self, name, spec, columns, colnames):
         assert _is_string(name)
@@ -120,7 +120,9 @@ class SchemaKey:
         assert _is_string(spec)
         assert _is_string(table)
         assert _is_tuple_of(int, columns)
-        
+        for i, j in zip(columns, columns[1:]):
+            assert i < j
+
         self.name = name
         self.spec = spec
         self.table = table
@@ -197,8 +199,8 @@ class Schema:
         for key in keys.values():
             if key.table not in tables:
                 raise ValueError('Unique key "%s" constrains table "%s" which is not defined' %(key.name, key.table))
-            if not _valid_key_indices(key.columns, len(tables[key.table].columns)):
-                raise ValueError('Invalid column specification in key constraint "%s"' %(key,))
+            if not _valid_key_columns(key.columns, len(tables[key.table].columns)):
+                raise ValueError('Invalid columns indices in key constraint "%s"' %(key,))
 
         for fkey in foreignkeys.values():
             if fkey.table not in tables:
@@ -216,6 +218,36 @@ class Schema:
         self.tables = tables
         self.keys = keys
         self.foreignkeys = foreignkeys
+
+    def is_key(self, table, columns):
+        """Test whether the given columns are a key in to the given table
+
+        Args:
+            table (str): The name of a table in this schema
+            columns (tuple): 0-basesd columns indices of the table
+        Returns:
+            bool: Whether the given columns for a key (not necessarily a
+                candidate key).
+        Raises:
+            ValueError: If the table is not in the schema
+            ValueError: If the given columns indices don't match the given
+                table.
+        """
+        assert _is_string(table)
+        assert _is_tuple_of(int, columns)
+
+        if not table in self.tables:
+            raise ValueError('No such table: "%s"' %(table,))
+        if not _valid_key_columns(columns, len(self.tables[table].columns)):
+            raise ValueError('Invalid columns indices for table "%s": %s' %(table, columns))
+
+        if columns == tuple(range(len(self.tables[table].columns))):
+            return True
+        for key in self.keys.values():
+            if key.table == table:
+                if all(c in columns for c in key.columns):
+                    return True
+        return False
 
     def __str__(self):
         out = []
