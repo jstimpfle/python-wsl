@@ -1,4 +1,4 @@
-from .datatypes import Value, Struct, List, Dict, Query
+from .datatypes import Value, Struct, Set, List, Dict, Query
 
 
 class Settable():
@@ -114,6 +114,7 @@ def todb(cols, rows, objs, spec, database):
 
 
 def objects2rows(objs, spec):
+    assert any(isinstance(spec, t) for t in [Value, Struct, List, Set, Dict])
     database = {}
 
     todb((), [()], [objs], spec, database)

@@ -52,7 +52,7 @@ def parse_keyword(text, i):
 def parse_identifier(text, i):
     end = len(text)
     start = i
-    m = re.match(r'^[a-zA-Z][a-zA-Z0-9]*', text[i:])
+    m = re.match(r'^[a-zA-Z][a-zA-Z0-9_-]*', text[i:])
     if m is None:
         raise make_parse_exc('Identifier expected', text, i)
     i += m.end(0)
@@ -62,7 +62,7 @@ def parse_identifier(text, i):
 def parse_string(text, i):
     end = len(text)
     start = i
-    m = re.match(r'^\[[a-zA-Z 0-9 _-]*\]', text[i:])
+    m = re.match(r'^\[[^]\n]*\]', text[i:])
     if m is None:
         raise make_parse_exc('String [in square bracket style] expected but found %s' %(text[i:],), text, i)
     i += m.end(0)
@@ -209,5 +209,6 @@ def make_parser_from_spec(lookup_primparser, spec, indent):
 
 
 def text2objects(lookup_primparser, spec, text):
+    assert isinstance(text, str)
     parser = make_parser_from_spec(lookup_primparser, spec, 0)
     return doparse(parser, text)

@@ -1,4 +1,4 @@
-from .datatypes import Value, Struct, List, Dict, Query
+from .datatypes import Value, Struct, Set, List, Dict, Query
 
 
 def find_child_rows(cols, rows, objs, query, database):
@@ -102,7 +102,9 @@ def fromdb(cols, rows, objs, spec, database):
         assert False
 
 
-def rows2objects(s, database):
-    [(topobj, subobj)] = fromdb((), [()], [None], s, database)
+def rows2objects(spec, database):
+    assert any(isinstance(spec, t) for t in [Value, Struct, Set, List, Dict])
+    assert isinstance(database, dict)
+    [(topobj, subobj)] = fromdb((), [()], [None], spec, database)
     assert topobj is None
     return subobj
