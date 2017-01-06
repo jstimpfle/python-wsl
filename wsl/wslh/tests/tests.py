@@ -1,7 +1,7 @@
 import json
 
 import wsl
-import wslh
+import wsl.wslh as wslh
 
 
 myschema = wsl.parse_schema("""
