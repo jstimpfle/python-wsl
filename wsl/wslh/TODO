@@ -1,0 +1,42 @@
+friendly error messages for common errors in input
+
+objects2text translation
+
+make text format more human friendly
+====================================
+
+... by adding this syntactic quirk: structural types with "multiplicities" --
+i.e.  sets, lists, dicts -- that are direct childs of a struct element are
+migrated to the struct's level. For example, let's suppose we have a spec like
+
+    Person: dict for (p n y) (Person p n y)
+        _key_: value p
+        _val_: struct
+            name: value n
+            yearofbirth: value y
+
+and a dataset with the following two persons:
+
+    Person
+        value john
+            name [John Doe]
+            yearofbirth 1970
+    
+        value jane
+            name [Jane Dane]
+            yearofbirth 1984
+
+The outermost level is a struct. It contains only the field Person, which is a
+dict. We would rather like to write
+
+    Person john
+        name [John Doe]
+        yearofbirth 1970
+    
+    Person jane
+        name [Jane Dane]
+        yearofbirth 1984
+
+In other words, the idea is to exploit the fact that a struct hast only one
+value per field name, to eliminiate a level of indentation, and to eliminate
+the pseudo-field "value".
