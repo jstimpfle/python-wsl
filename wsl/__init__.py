@@ -18,3 +18,4 @@ from .format import format_values
 from .format import format_row
 from .format import format_schema
 from .format import format_db
+from .integrity import check_database_integrity

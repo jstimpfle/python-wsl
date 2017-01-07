@@ -165,6 +165,13 @@ Schema
    :members: Schema, SchemaDomain, SchemaTable, SchemaKey, SchemaForeignKey
 
 
+Integrity
+---------
+
+.. automodule:: wsl
+   :members: check_database_integrity
+
+
 Database
 --------
 
