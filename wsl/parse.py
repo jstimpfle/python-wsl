@@ -265,7 +265,7 @@ def parse_relation_name(line, i):
     x = i
     while i < end and (0x41 <= ord(line[i]) <= 0x5a or 0x61 <= ord(line[i]) <= 0x7a):
         i += 1
-    return line[x:i], i
+    return i, line[x:i]
 
 
 def parse_space(line, i):
@@ -304,7 +304,7 @@ def parse_values(line, i, domain_objects):
     vs = []
     for do in domain_objects:
         i = parse_space(line, i)
-        val, i = do.decode(line, i)
+        i, val = do.decode(line, i)
         vs.append(val)
     if i != end:
         raise wsl.ParseError('Expected EOL at character %d in line %s' %(i+1, line))
@@ -327,7 +327,7 @@ def parse_row(line, objects_of_relation):
         wsl.ParseError: if the parse failed.
     """
     end = len(line)
-    relation, i = parse_relation_name(line, 0)
+    i, relation = parse_relation_name(line, 0)
     dos = objects_of_relation.get(relation)
     if dos is None:
         raise wsl.ParseError('No such table: "%s" while parsing line: %s' %(relation, line))

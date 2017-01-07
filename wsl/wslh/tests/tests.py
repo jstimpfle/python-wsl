@@ -4,12 +4,24 @@ import wsl
 import wsl.wslh as wslh
 
 
-myschema = wsl.parse_schema("""
+schemastr = """
 DOMAIN Int Int
 TABLE foo Int Int Int
 TABLE bar Int Int
 REFERENCE foobar foo * * c => bar c *
-""")
+"""
+
+
+dbstr = """
+foo 1 2 3
+foo 4 5 6
+bar 3 666
+bar 6 1024
+bar 42 0
+"""
+
+
+myschema = wsl.parse_schema(schemastr)
 
 
 myspec = wslh.parse_spec(myschema, """\
@@ -24,10 +36,7 @@ bars: dict for (c d) (bar c d)
 """)
 
 
-mydatabase = {
-    'foo': [(1, 2, 3), (4, 5, 6)],
-    'bar': [(3, 666), (6, 1024), (42, 0)]
-}
+mydatabase = wsl.parse_db(schemastr=schemastr, dbstr=dbstr)
 
 
 myobject = {
@@ -71,14 +80,14 @@ def test_rows2objects():
 
     print('Database:')
     print('=========')
-    for key, rows in sorted(mydatabase.items()):
+    for key, rows in sorted(mydatabase.tables.items()):
         print(key)
         print('-' * len(key))
         for row in sorted(rows):
             print(row)
         print()
 
-    objects = wslh.rows2objects(myspec, mydatabase)
+    objects = wslh.rows2objects(myspec, mydatabase.tables)
 
     assert isinstance(objects, dict)
 
@@ -99,7 +108,7 @@ def test_objects2rows():
     print('========')
     print(json_repr(myobject))
 
-    database = wslh.objects2rows(myobject, myspec)
+    tables = wslh.objects2rows(myobject, myspec)
 
     print()
     print('RESULTS')
@@ -108,11 +117,11 @@ def test_objects2rows():
     for table in ['bar', 'foo']:
         print(table)
         print('=' * len(table))
-        for row in database[table]:
+        for row in tables[table]:
             print(row)
         print()
 
-    return database
+    return tables
 
 
 def test_text2objects():
@@ -122,14 +131,11 @@ def test_text2objects():
     print()
 
     def lookup_primparser(primtype):
-        if primtype == 'Int':
-            return wslh.parse_int
-        elif primtype == 'String':
-            return wslh.parse_string
-        elif primtype.endswith('ID'):
-            return wslh.parse_identifier
-        else:
+        # inconsistent naming... :(
+        domain = myschema.domains.get(primtype)
+        if domain is None:
             assert False
+        return domain.funcs.decode
 
     objects = wslh.text2objects(lookup_primparser, myspec, mytext)
 
@@ -140,9 +146,9 @@ def test_text2objects():
 
 if __name__ == '__main__':
     objects = test_rows2objects()
-    database = test_objects2rows()
+    tables = test_objects2rows()
     objects2 = test_text2objects()
 
     assert json_repr(objects) == json_repr(myobject)
-    assert json_repr(database) == json_repr(mydatabase)
+    assert json_repr(tables) == json_repr(mydatabase.tables)
     assert objects == objects2

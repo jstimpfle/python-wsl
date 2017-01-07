@@ -49,36 +49,6 @@ def parse_keyword(text, i):
     return i, text[start:i]
 
 
-def parse_identifier(text, i):
-    end = len(text)
-    start = i
-    m = re.match(r'^[a-zA-Z][a-zA-Z0-9_-]*', text[i:])
-    if m is None:
-        raise make_parse_exc('Identifier expected', text, i)
-    i += m.end(0)
-    return i, text[start:i]
-
-
-def parse_string(text, i):
-    end = len(text)
-    start = i
-    m = re.match(r'^\[[^]\n]*\]', text[i:])
-    if m is None:
-        raise make_parse_exc('String [in square bracket style] expected but found %s' %(text[i:],), text, i)
-    i += m.end(0)
-    return i, text[start+1:i-1]
-
-
-def parse_int(text, i):
-    end = len(text)
-    start = i
-    m = re.match(r'^(0|-?[1-9][0-9]*)', text[i:])
-    if m is None:
-        raise make_parse_exc('Integer expected', text, i)
-    i += m.end(0)
-    return i, int(text[start:i])
-
-
 def parse_block(dct, indent, text, i):
     end = len(text)
     out = []

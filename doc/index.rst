@@ -105,7 +105,7 @@ Let's make a decoder / encoder pair for base64 encoded data.
             v = base64.b64decode(line[beg:i], validate=True)
         except binascii.Error as e:
             raise wsl.ParseError('Failed to parse base64 literal at character %d, line "%s"' %(beg, line))
-        return v, i
+        return i, v
 
     def Base64_encode(x):
         return base64.b64encode(x).decode('ascii')  # dance the unicode dance :/

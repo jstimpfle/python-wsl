@@ -8,7 +8,7 @@ consumed. It returns a domain object with *decode* and *encode* member defs as
 explained in the following paragraph.
 
 The *decode* member of a domain object is a function that takes a string and a
-start index into the string. It returns a pair *(val, j)* where *val* is the
+start index into the string. It returns a pair *(j, val)* where *val* is the
 parsed value and *j* is the position of the first unconsumed character. A
 *wsl.ParseError* is raised if the decode fails.
 
@@ -129,7 +129,7 @@ def ID_decode(line, i):
         i += 1
     if x == i:
         raise wsl.ParseError('EOL or invalid character while expecting ID at character %d in line "%s"' %(i+1, line))
-    return (line[x:i], i)
+    return i, line[x:i]
 
 
 def ID_encode(idval):
@@ -175,7 +175,7 @@ def make_String_decode(escape):
                     i += 1
             if i == end:
                 raise wsl.ParseError('EOL while looking for closing quote in line %s' %(line))
-            return (''.join(cs), i+1)
+            return i+1, ''.join(cs)
     else:
         def String_decode(line, i):
             """Value decoder for String literals without escapes"""
@@ -194,7 +194,7 @@ def make_String_decode(escape):
                 i += 1
             if i == end:
                 raise wsl.ParseError('EOL while looking for closing quote in line %s' %(line))
-            return (line[x:i], i+1)
+            return i+1, line[x:i]
     return String_decode
 
 
@@ -227,16 +227,18 @@ def make_String_encode(escape):
 def Int_decode(line, i):
     """Value decoder for Int domain"""
     end = len(line)
-    if i == end or not 0x30 <= ord(line[i]) <= 0x39:
-        raise wsl.ParseError('Did not find expected integer literal at character %d in line %s' %(i+1, line))
-    if ord(line[i]) == 0x30:
-        raise wsl.ParseError('Found integer literal starting with zero at character %d in line %s' %(i+1, line))
-    n = ord(line[i]) - 0x30
-    i += 1
+    start = i
     while i < end and 0x30 <= ord(line[i]) <= 0x39:
-        n = 10*n + ord(line[i]) - 0x30
         i += 1
-    return (n, i)
+    if i == start:
+        raise wsl.ParseError('Did not find expected integer literal at character %d in line %s' %(i+1, line))
+    if ord(line[start]) == 0x30 and i - start > 1:
+        raise wsl.ParseError('Found integer literal (leading zero) at character %d in line %s' %(i+1, line))
+    try:
+        n = int(line[start:i])
+    except:
+        assert False
+    return i, n
 
 
 def Int_encode(integer):
@@ -257,7 +259,7 @@ def IPv4_decode(line, i):
             for b in ip:
                 if b < 0 or b >= 256:
                     raise ValueError()
-            return (ip, i)
+            return i, ip
         except ValueError:
             pass
     raise wsl.ParseError('IPv4 address must be 4-tuple of 1 byte integers (0-255)')
@@ -327,7 +329,7 @@ def make_Enum_decode(values):
         token = line[x:i]
         for value in values:
             if value.string == token:
-                return (value, i)
+                return i, value
         raise wsl.ParseError('Invalid token "%s" at line "%s" character %d; valid tokens are %s' %(token, line, i, ','.join(y for x, y in options)))
     return Enum_decode
 
