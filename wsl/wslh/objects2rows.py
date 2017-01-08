@@ -18,7 +18,7 @@ class Settable():
         return self.x
 
 
-def add_rows(database, query, cols, rows):
+def add_rows(query, cols, rows, database):
     key = tuple(cols.index(v) for v in query.variables)
     table = database.setdefault(query.table, [])
     for row in rows:
@@ -42,7 +42,7 @@ def todb_value(cols, rows, objs, spec, database):
     for nextrow, nextobj in zip(nextrows, nextobjs):
         nextrow[idx].set(nextobj)
     if spec.query is not None:
-        add_rows(database, spec.query, nextcols, nextrows)
+        add_rows(spec.query, nextcols, nextrows, database)
 
 
 def todb_struct(cols, rows, objs, spec, database):
@@ -68,7 +68,7 @@ def todb_struct(cols, rows, objs, spec, database):
     for key in spec.childs:
         todb(nextcols, nextrows, nextobjs[key], spec.childs[key], database)
     if spec.query is not None:
-        add_rows(database, spec.query, nextcols, nextrows)
+        add_rows(spec.query, nextcols, nextrows, database)
 
 
 def todb_list(cols, rows, objs, spec, database):
@@ -80,7 +80,7 @@ def todb_list(cols, rows, objs, spec, database):
             nextrows.append(row + tuple(Settable() for _ in spec.query.freshvariables))
             nextobjs.append(item)
     todb(nextcols, nextrows, nextobjs, spec.childs['_val_'], database)
-    add_rows(database, spec.query, nextcols, nextrows)
+    add_rows(spec.query, nextcols, nextrows, database)
 
 
 def todb_dict(cols, rows, objs, spec, database):
@@ -95,7 +95,7 @@ def todb_dict(cols, rows, objs, spec, database):
             nextobjs_vals.append(val)
     todb(nextcols, nextrows, nextobjs_keys, spec.childs['_key_'], database)
     todb(nextcols, nextrows, nextobjs_vals, spec.childs['_val_'], database)
-    add_rows(database, spec.query, nextcols, nextrows)
+    add_rows(spec.query, nextcols, nextrows, database)
 
 
 def todb(cols, rows, objs, spec, database):
@@ -114,7 +114,7 @@ def todb(cols, rows, objs, spec, database):
 
 
 def objects2rows(objs, spec):
-    assert any(isinstance(spec, t) for t in [Value, Struct, List, Set, Dict])
+    assert any(isinstance(spec, t) for t in [Value, Struct, Set, List, Dict])
     database = {}
 
     todb((), [()], [objs], spec, database)
