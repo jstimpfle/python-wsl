@@ -1,6 +1,6 @@
 import re
 
-from .datatypes import Value, Struct, List, Dict
+from .datatypes import Value, Struct, Option, Set, List, Dict
 
 
 INDENTSPACES = 4
@@ -111,6 +111,19 @@ def make_struct_parser(dct, indent):
     return struct_parser
 
 
+def make_option_parser(parser):
+    def option_parser(text, i):
+        end = len(text)
+        if i < end and text[i] == '!':
+            i, val = parser(text, i+1)
+        elif i < end and text[i] == '?':
+            i, val = i+1, None
+        else:
+            raise make_parse_exc('Expected option ("?", or "!" followed by value)', text, i)
+        return i, val
+    return option_parser
+
+
 def make_dict_parser(key_parser, val_parser, indent):
     item_parser = make_keyvalue_parser(key_parser, val_parser)
     def dict_parser(text, i):
@@ -156,11 +169,15 @@ def make_parser_from_spec(lookup_primparser, spec, indent):
         dct = {}
         for k, v in spec.childs.items():
             subparser = make_parser_from_spec(lookup_primparser, v, nextindent)
-            if type(v) == Value:
+            if type(v) in [Value, Option]:
                 dct[k] = space_and_then(subparser)
             else:
                 dct[k] = newline_and_then(subparser)
         return make_struct_parser(dct, indent)
+
+    elif typ == Option:
+        subparser = make_parser_from_spec(lookup_primparser, spec.childs['_val_'], indent)
+        return make_option_parser(subparser)
 
     elif typ == List:
         val_parser = make_parser_from_spec(lookup_primparser, spec.childs['_val_'], nextindent)

@@ -1,6 +1,6 @@
 import io
 
-from .datatypes import Value, Struct, List, Dict
+from .datatypes import Value, Struct, Option, Set, List, Dict
 
 
 INDENTSPACES = 4
@@ -55,13 +55,23 @@ def make_struct_writer(dct, indent):
     def write_struct(writer, data):
         for key, write_cld in items:
             writer.write('%s%s' %(indentstr, key))
-            val = data.get(key)
-            if val is None:
+            if key not in data:
                 raise ValueError('Missing field "%s"\n' %(key,))
+            val = data[key]
             write_cld(writer, val)
             if indent == 0:
                 writer.write('\n')  # special quirk
     return write_struct
+
+
+def make_option_writer(write_val):
+    def write_option(writer, data):
+        if data is None:
+            writer.write(' ?\n')
+        else:
+            writer.write(' !\n')
+            write_val(writer, data)
+    return write_option
 
 
 def make_list_writer(write_value, indent):
@@ -79,7 +89,7 @@ def make_list_writer(write_value, indent):
 def make_dict_writer(write_key, write_value, indent):
     indentstr = ' ' * indent
     def write_dict(writer, data):
-        for key, value in data.items():
+        for key, value in sorted(data.items()):
             writer.write('\n')
             writer.write('%svalue' %(indentstr,))
             write_key(writer, key)
@@ -103,6 +113,11 @@ def make_writer_from_spec(lookup_primformatter, spec, indent):
             dct[k] = make_writer_from_spec(lookup_primformatter, v, nextindent)
 
         return make_struct_writer(dct, indent)
+
+
+    elif typ == Option:
+        val_writer = make_writer_from_spec(lookup_primformatter, spec.childs['_val_'], indent)
+        return make_option_writer(val_writer)
 
     elif typ == List:
         val_writer = make_writer_from_spec(lookup_primformatter, spec.childs['_val_'], nextindent)

@@ -19,7 +19,7 @@ and a dataset with the following two persons:
         value john
             name [John Doe]
             yearofbirth 1970
-    
+
         value jane
             name [Jane Dane]
             yearofbirth 1984
@@ -30,7 +30,7 @@ dict. We would rather like to write
     Person john
         name [John Doe]
         yearofbirth 1970
-    
+
     Person jane
         name [Jane Dane]
         yearofbirth 1984

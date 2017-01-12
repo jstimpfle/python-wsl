@@ -54,23 +54,43 @@ bars
     value 3
         c 3
         d 666
-        s
+        s !
             a 1
             b 2
+
     value 6
         c 6
         d 1024
-        s
+        s !
             a 4
             b 5
+
     value 42
         c 42
         d 0
+        s ?
+
 """
 
 
 def json_repr(x):
     return json.dumps(x, sort_keys=True, indent=2, ensure_ascii=False)
+
+
+def lookup_primparser(primtype):
+    # inconsistent naming... :(
+    domain = myschema.domains.get(primtype)
+    if domain is None:
+        assert False
+    return domain.funcs.decode
+
+
+def lookup_primformatter(primtype):
+    # inconsistent naming... :(
+    domain = myschema.domains.get(primtype)
+    if domain is None:
+        assert False
+    return domain.funcs.encode
 
 
 def test_rows2objects():
@@ -131,13 +151,6 @@ def test_text2objects():
     print('=========================')
     print()
 
-    def lookup_primparser(primtype):
-        # inconsistent naming... :(
-        domain = myschema.domains.get(primtype)
-        if domain is None:
-            assert False
-        return domain.funcs.decode
-
     objects = wslh.text2objects(lookup_primparser, myspec, mytext)
 
     print(objects)
@@ -145,11 +158,26 @@ def test_text2objects():
     return objects
 
 
+def test_objects2text():
+    print()
+    print('TESTING objects2text()...')
+    print('=========================')
+    print()
+
+    text = wslh.objects2text(lookup_primformatter, myspec, myobject)
+
+    print(text)
+
+    return text
+
+
 if __name__ == '__main__':
     objects = test_rows2objects()
     tables = test_objects2rows()
     objects2 = test_text2objects()
+    text = test_objects2text()
 
     assert json_repr(objects) == json_repr(myobject)
     assert json_repr(tables) == json_repr(mydatabase.tables)
     assert objects == objects2
+    assert text == mytext
