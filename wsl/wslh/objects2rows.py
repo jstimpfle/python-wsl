@@ -1,4 +1,4 @@
-from .datatypes import Value, Struct, Set, List, Dict, Query
+from .datatypes import Value, Struct, Option, Set, List, Dict, Query
 
 
 class Settable():
@@ -46,29 +46,31 @@ def todb_value(cols, rows, objs, spec, database):
 
 
 def todb_struct(cols, rows, objs, spec, database):
-    if spec.query is not None:
-        nextcols = cols + spec.query.freshvariables
-        nextrows = []
-        nextobjs = { key: [] for key in spec.childs }
-        for row, obj in zip(rows, objs):
-            if obj is not None:
-                nextrows.append(row + tuple(Settable() for _ in spec.query.freshvariables))
-                for key in spec.childs:
-                    nextobjs[key].append(obj[key])
-    else:
-        nextcols = cols
-        nextrows = rows
-        nextobjs = { key: [] for key in spec.childs }
-        for obj in objs:
-            assert obj is not None
-            for key in spec.childs:
-                if key not in obj:
-                    raise ValueError('Expected member "%s" but got object with these keys: %s' %(key, ', '.join(str(k) for k in obj.keys())))
-                nextobjs[key].append(obj[key])
+    nextcols = cols
+    nextrows = rows
+    nextobjs = { key: [] for key in spec.childs }
+    for obj in objs:
+        assert obj is not None
+        for key in spec.childs:
+            if key not in obj:
+                raise ValueError('Expected member "%s" but got object with these keys: %s' %(key, ', '.join(str(k) for k in obj.keys())))
+            nextobjs[key].append(obj[key])
     for key in spec.childs:
         todb(nextcols, nextrows, nextobjs[key], spec.childs[key], database)
-    if spec.query is not None:
-        add_rows(spec.query, nextcols, nextrows, database)
+
+
+def todb_option(cols, rows, objs, spec, database):
+    nextcols = cols + spec.query.freshvariables
+    nextrows = []
+    nextobjs = []
+    for row, obj in zip(rows, objs):
+        if obj is not None:
+            nextrows.append(row + tuple(Settable() for _ in spec.query.freshvariables))
+            nextobjs.append(obj)
+
+    todb(nextcols, nextrows, nextobjs, spec.childs['_val_'], database)
+
+    add_rows(spec.query, nextcols, nextrows, database)
 
 
 def todb_list(cols, rows, objs, spec, database):
@@ -105,6 +107,8 @@ def todb(cols, rows, objs, spec, database):
         todb_value(cols, rows, objs, spec, database)
     elif typ == Struct:
         todb_struct(cols, rows, objs, spec, database)
+    elif typ == Option:
+        todb_option(cols, rows, objs, spec, database)
     elif typ == List:
         todb_list(cols, rows, objs, spec, database)
     elif typ == Dict:

@@ -1,4 +1,4 @@
-from .datatypes import Value, Struct, Set, List, Dict, Query
+from .datatypes import Value, Struct, Option, Set, List, Dict, Query
 
 
 def find_child_rows(cols, rows, objs, query, database):
@@ -41,23 +41,31 @@ def fromdb_value(cols, rows, objs, spec, database):
 
 
 def fromdb_struct(cols, rows, objs, spec, database):
-    structs = [None] * len(objs)
+    structs = [{} for _ in objs]
     ids = range(len(objs))
 
-    if spec.query is not None:
-        newcols, newrows, newids, _ = find_child_rows(cols, rows, ids, spec.query, database)
-    else:
-        newcols, newrows, newids = cols, rows, ids
-
-    for i in newids:
+    for i in ids:
         structs[i] = {}
 
     for key in spec.childs:
-        pairs = fromdb(newcols, newrows, newids, spec.childs[key], database)
+        pairs = fromdb(cols, rows, ids, spec.childs[key], database)
         for i, val in pairs:
             structs[i][key] = val
 
     return list(zip(objs, structs))
+
+
+def fromdb_option(cols, rows, objs, spec, database):
+    values = [None] * len(objs)
+    ids = range(len(objs))
+
+    newcols, newrows, newids, _ = find_child_rows(cols, rows, ids, spec.query, database)
+
+    pairs = fromdb(newcols, newrows, newids, spec.childs['_val_'], database)
+    for i, val in pairs:
+        values[i] = val
+
+    return list(zip(objs, values))
 
 
 def fromdb_list(cols, rows, objs, spec, database):
@@ -94,6 +102,8 @@ def fromdb(cols, rows, objs, spec, database):
         return fromdb_value(cols, rows, objs, spec, database)
     elif typ == Struct:
         return fromdb_struct(cols, rows, objs, spec, database)
+    elif typ == Option:
+        return fromdb_option(cols, rows, objs, spec, database)
     elif typ == List:
         return fromdb_list(cols, rows, objs, spec, database)
     elif typ == Dict:

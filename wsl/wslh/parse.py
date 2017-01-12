@@ -1,7 +1,7 @@
 import collections
 import re
 
-from .datatypes import Value, Struct, Set, List, Dict, Reference, Query
+from .datatypes import Value, Struct, Option, Set, List, Dict, Reference, Query
 
 
 class ParseError(Exception):
@@ -63,7 +63,7 @@ def parse_keyword(line, i, keyword, desc):
     try:
         i, kw = parse_identifier(line, i)
     except ParseError as e:
-        raise ParseError('Expected "%s" at %s' %(typedesc, line.desc(i)))
+        raise ParseError('Expected "%s" at %s' %(desc, line.desc(i)))
     if kw != keyword:
         raise ParseError('Expected "%s" but found identifier "%s" at "%s"' %(desc, kw, line.desc(i)))
     return i
@@ -119,7 +119,7 @@ def parse_indent(line):
 
 
 def parse_member_type(line, i):
-    ts = ["value", "option", "reference", "struct", "set", "list", "dict"]
+    ts = ["value", "struct", "option", "set", "list", "dict"]
     i, w = parse_identifier(line, i)
     if w not in ts:
         raise ParseError('Not a valid member type: "%s". Valid types are: %s at %s' %(w, ' '.join(ts), line.desc(i)))
@@ -153,7 +153,7 @@ def parse_line(line):
     cases:
 
       MEMBER_VALUE     := TYPE (QUERY)?
-      TYPE             := "value" | "option" | "struct" | "set" | "dict"
+      TYPE             := "value" | "struct" | "option" | "set" | "dict"
       QUERY            := FOR_KEYWORD FREEVARS_LIST QUERY_LIST
       FREEVARS_LIST    := IDENTIFIERS_LIST
       QUERY_LIST       := IDENTIFIERS_LIST
@@ -184,7 +184,7 @@ def parse_line(line):
     except ParseError as e:
         raise ParseError('Failed to parse member type at %s' %(line.desc(i),)) from e
 
-    if membertype in ["value", "option"]:
+    if membertype in ["value"]:
         i = parse_space(line, i)
         try:
             i, membervariable = parse_identifier(line, i)
@@ -242,15 +242,22 @@ def parse_tree(lookup_type, lines, primtypes=None, li=None, curindent=None):
         if query is not None:
             infer_types(query)
 
-        if membertype in ["struct", "set", "list", "dict"]:
+        if membertype in ["struct", "option", "set", "list", "dict"]:
             assert membervariable is None
             li, childs = parse_tree(lookup_type, lines, primtypes, li+1, curindent + 4)
 
             if membertype == "struct":
+                if query is not None:
+                    raise ParseError('Struct at "%s": Queries not allowed for "struct" elements' %(line.desc(),))
                 for x in childs.keys():
                     if x.startswith('_'):
                         raise ParseError('Struct member at %s: child %s: must not start with underscore' %(line.desc(), x))
                 spec = Struct(childs, query)
+
+            elif membertype == "option":
+                if set(childs) != set(['_val_']):
+                    raise ParseError('Option member at %s: Need _val_ child (and no more)' %(line.desc(),))
+                spec = Option(childs, query)
 
             elif membertype == "set":
                 if set(childs) != set(['_val_']):

@@ -30,9 +30,10 @@ bars: dict for (c d) (bar c d)
     _val_: struct
         c: value c
         d: value d
-        s: struct for (a b) (foo a b c)
-            a: value a
-            b: value b
+        s: option for (a b) (foo a b c)
+            _val_: struct
+                a: value a
+                b: value b
 """)
 
 
