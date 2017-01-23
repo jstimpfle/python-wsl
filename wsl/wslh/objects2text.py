@@ -1,3 +1,4 @@
+import collections
 import io
 
 from .datatypes import Value, Struct, Option, Set, List, Dict
@@ -6,28 +7,10 @@ from .datatypes import Value, Struct, Option, Set, List, Dict
 INDENTSPACES = 4
 
 
-def format_int(data):
-    assert isinstance(data, int)
-
-    return str(data)
-
-
-def format_string(data):
-    assert isinstance(data, str)
-
-    return "[%s]" %(data,)  # XXX
-
-
-def format_identifier(data):
-    assert isinstance(data, str)
-
-    return data
-
-
-def make_primvalue_writer(primformatter):
+def make_primvalue_writer(primwriter):
     def write_primvalue(writer, data):
         writer.write(' ')
-        writer.write(primformatter(data))
+        writer.write(primwriter(data))
         writer.write('\n')
     return write_primvalue
 
@@ -50,10 +33,9 @@ def make_keyvalue_writer(keywriter, valuewriter, indent):
 
 
 def make_struct_writer(dct, indent):
-    items = sorted(dct.items())
     indentstr = ' ' * indent
     def write_struct(writer, data):
-        for key, write_cld in items:
+        for key, write_cld in dct.items():
             writer.write('%s%s' %(indentstr, key))
             if key not in data:
                 raise ValueError('Missing field "%s"\n' %(key,))
@@ -81,7 +63,7 @@ def make_list_writer(write_value, indent):
             raise ValueError('list expected')
         writer.write('\n')
         for value in data:
-            writer.write('%svalue' %(indentstr,))
+            writer.write(indentstr)
             write_value(writer, value)
     return write_list
 
@@ -91,49 +73,50 @@ def make_dict_writer(write_key, write_value, indent):
     def write_dict(writer, data):
         for key, value in sorted(data.items()):
             writer.write('\n')
-            writer.write('%svalue' %(indentstr,))
+            writer.write(indentstr)
+            writer.write('value')
             write_key(writer, key)
             write_value(writer, value)
     return write_dict
 
 
-def make_writer_from_spec(lookup_primformatter, spec, indent):
+def make_writer_from_spec(lookup_primwriter, spec, indent):
     nextindent = indent + INDENTSPACES
     typ = type(spec)
 
     if typ == Value:
-        primformatter = lookup_primformatter(spec.primtype)
-        if primformatter is None:
-            raise ValueError('There is no formatter for datatype "%s"' %(spec.primtype,))
-        return make_primvalue_writer(primformatter)
+        primwriter = lookup_primwriter(spec.primtype)
+        if primwriter is None:
+            raise ValueError('There is no primwriter for datatype "%s"' %(spec.primtype,))
+        return make_primvalue_writer(primwriter)
 
     elif typ == Struct:
-        dct = {}
+        dct = collections.OrderedDict()
         for k, v in spec.childs.items():
-            dct[k] = make_writer_from_spec(lookup_primformatter, v, nextindent)
+            dct[k] = make_writer_from_spec(lookup_primwriter, v, nextindent)
 
         return make_struct_writer(dct, indent)
 
 
     elif typ == Option:
-        val_writer = make_writer_from_spec(lookup_primformatter, spec.childs['_val_'], indent)
+        val_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_val_'], indent)
         return make_option_writer(val_writer)
 
     elif typ == List:
-        val_writer = make_writer_from_spec(lookup_primformatter, spec.childs['_val_'], nextindent)
+        val_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_val_'], nextindent)
         return make_list_writer(val_writer, indent)
 
     elif typ == Dict:
-        key_writer = make_writer_from_spec(lookup_primformatter, spec.childs['_key_'], nextindent)
-        val_writer = make_writer_from_spec(lookup_primformatter, spec.childs['_val_'], nextindent)
+        key_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_key_'], nextindent)
+        val_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_val_'], nextindent)
         return make_dict_writer(key_writer, val_writer, indent)
 
     assert False  # missing case
 
 
-def objects2text(lookup_primformatter, spec, obj):
+def objects2text(lookup_primwriter, spec, obj):
     sio = io.StringIO()
-    writer = make_writer_from_spec(lookup_primformatter, spec, 0)
+    writer = make_writer_from_spec(lookup_primwriter, spec, 0)
     writer(sio, obj)
 
     return sio.getvalue()

@@ -59,7 +59,7 @@ def parse_domain_decl(line, domain_parsers):
 
 
 def parse_table_decl(line):
-    """Parse a domain declaraation ilne.
+    """Parse a table declaration ilne.
 
     Args:
         line (str): The table declaration.
@@ -258,156 +258,109 @@ def parse_schema(schemastr, domain_parsers=None):
     return wsl.Schema(schemastr, domains, tables, keys, foreignkeys)
 
 
-def parse_relation_name(line, i):
-    end = len(line)
-    if not 0x41 <= ord(line[i]) <= 0x5a and not 0x61 <= ord(line[i]) <= 0x7a:
-        raise wsl.ParseError('Expected table name at character %d in line "%s"' %(i+1, line))
-    x = i
-    while i < end and (0x41 <= ord(line[i]) <= 0x5a or 0x61 <= ord(line[i]) <= 0x7a):
+def split_schema(text, i):
+    end = len(text)
+
+    lines = []
+
+    while i < end and text[i] == '%':
         i += 1
-    return i, line[x:i]
+        while i < end and text[i] == ' ':
+            i += 1
+        lstart = i
+        while i < end and text[i] != '\n':
+            i += 1
+        if not i < end:
+            raise ValueError('Schema line missing newline')
+
+        lines.append(text[lstart:i])
+        i += 1
+
+    return i, ''.join(line + '\n' for line in lines)
 
 
-def parse_space(line, i):
-    """Parse a space that separates two tokens in a database tuple line.
-
-    This function parses expects precisely one space character, and throws an
-    exception if the space is not found.
-
-    Args:
-        line (str) : holds a database tuple.
-        i (int): An index into the line where the space is supposed to be.
-    Returns:
-        int: If the parse succeeds, the index of the next character following the space.
-    Raises:
-        wsl.ParseError: If no space is found.
-    """
-    end = len(line)
-    if i == end or ord(line[i]) != 0x20:
-        raise wsl.ParseError('Expected space character in line %s at position %d' %(line, i))
-    return i+1
-
-
-def parse_values(line, i, domain_objects):
-    """Parse values from line according to *domain_objects*, separated by single spaces.
-
-    Args:
-        line (str): holds a database tuple.
-        i (int): An index into the line where the space is supposed to be.
-        domain_objects (dict): dict mapping the name of each domain that is expected in this line to its domain object.
-    Returns:
-        tuple: A tuple containing the parsed values.
-    Raises:
-        wsl.ParseError: The called parsers raise ParseErrors if parsing fails.
-    """
-    end = len(line)
-    vs = []
-    for do in domain_objects:
-        i = parse_space(line, i)
-        i, val = do.decode(line, i)
-        vs.append(val)
-    if i != end:
-        raise wsl.ParseError('Expected EOL at character %d in line %s' %(i+1, line))
-    return tuple(vs)
-
-
-def parse_row(line, objects_of_relation):
-    """Parse a database tuple (a relation name and according values).
-
-    This def parses a relation name, which is used to lookup a domain object
-    in *objects_of_relation*. Then that object is used to call *parse_values()*.
-
-    Args:
-        line (str): holds a database tuple.
-        objects_of_relation (dict): maps relation names to the list of the
-            domain objects of their according columns.
-    Returns:
-        (str, tuple): A 2-tuple (relation, values), i.e. the relation name and a tuple containing the parsed values.
-    Raises:
-        wsl.ParseError: if the parse failed.
-    """
-    end = len(line)
-    i, relation = parse_relation_name(line, 0)
-    dos = objects_of_relation.get(relation)
-    if dos is None:
-        raise wsl.ParseError('No such table: "%s" while parsing line: %s' %(relation, line))
-    values = parse_values(line, i, dos)
-    return relation, values
-
-
-def parse_db(dbfilepath=None, dbstr=None, schemastr=None, domain_parsers=None):
+def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_parsers=None):
     """Convenience def to parse a WSL database.
 
-    This parses the schema (from *schemastr* if given, or else as inline schema
-    from the database), and then calls *parse_row()* for each line in *lines*.
+    This routine parses a database given schema information.
+
+    Zero or one of *schema* or *schemastr* must be given. If *schema* is *None*,
+    the schema is parsed from a schema string. If *schemastr* is also None, the
+    schema string is assumed to be inline before the database contents.
 
     One, and only one, of *dbfilepath* or *dbstr* should be given.
 
     Args:
         dbfilepath (str): Path to the file that contains the database.
         dbstr (str): A string that holds the database.
-        schemastr (str): Optional extern schema specification. If *None* is
-            given, the schema is expected to be given inline as part of the
-            database (each line prefixed with *%*)
-        domain_parsers (list): Optional domain parsers for the domains used in
+        schema (wsl.Schema): Optional schema. If not given, the schema is
+            expected to be given in text form (either in *schemastr* or inline
+            as part of the database).
+        schemastr (str): Optional schema specification. If not given, the schema
+            is expected to be given either in *schema* or inline as part of the
+            database (each line prefixed with *%*).
+        domain_parsers (dict): Optional domain parsers for the domains used in
             the database. If not given, the built-in parsers are used.
     Returns:
-        wsl.Database: The parsed Database object
+        A *dict* mapping each table name to a list of database rows (parsed
+            values)
     Raises:
         wsl.ParseError: if the parse failed.
     """
-    if not ((dbfilepath is not None) ^ (dbstr is not None)):
-        raise ValueError('parse_db() needs exactly one of dbfilepath, dblines or dbstr')
+    assert dbfilepath is None or isinstance(dbfilepath, str)
+    assert dbstr is None or isinstance(dbstr, str)
+    assert schema is None or isinstance(schema, wsl.Schema)
+    assert schemastr is None or isinstance(schemastr, str)
+    assert domain_parsers is None or isinstance(domain_parsers, dict)
+
+    if len(list(x for x in [schema, schemastr] if x is not None)) > 1:
+        raise ValueError('At most one of "schema" or "schemastr" arguments is allowed')
+
+    if len(list(x for x in [dbfilepath, dbstr] if x is not None)) != 1:
+        raise ValueError('Need exactly one of "dbfilepath" or "dbstr" arguments')
 
     if dbfilepath is not None:
-        lines = iter(open(dbfilepath, "r", encoding="utf-8", newline='\n').read().splitlines())
+        with open(dbfilepath, "r", encoding="utf-8", newline='\n') as f:
+            text = f.read()
+
     if dbstr is not None:
-        lines = iter(dbstr.splitlines())
+        text = dbstr
 
-    # indicate whether a database row was read after reading the schema
-    havedbrow = False
-    line = None
+    assert isinstance(text, str)
 
-    if schemastr is None:
-        schemalines = []
-        for line in lines:
-            if not line.startswith('%'):
-                havedbrow = True
-                break
-            schemalines.append(line.lstrip('% '))
-        schemastr = ''.join(line + '\n' for line in schemalines)
+    i = 0
 
-    schema = parse_schema(schemastr, domain_parsers)
+    if schema is None:
+        if schemastr is None:
+            i, schemastr = split_schema(text, i)
 
-    objects_of_relation = {}
+        schema = parse_schema(schemastr, domain_parsers)
+
+    lexers_of_relation = {}
+    decoders_of_relation = {}
+
     for table in schema.tables.values():
-        objs = []
-        for domainname in table.columns:
-            objs.append(schema.domains[domainname].funcs)
-        objects_of_relation[table.name] = tuple(objs)
+        lexers_of_relation[table.name] = tuple(schema.domains[domainname].funcs.wsllex for domainname in table.columns)
+        decoders_of_relation[table.name] = tuple(schema.domains[domainname].funcs.decode for domainname in table.columns)
 
-    db = wsl.Database(schema)
+    tokens_of_relation = { table.name: [] for table in schema.tables.values() }
 
-    # iteration over the lines of the database rows is messy here because we
-    # might have read the first line already
-    if not havedbrow:
-        try:
-            line = next(lines)
-        except StopIteration:
-            line = None
-    while line is not None:
-        line = line.strip()
-        if line:
-            table, tup = parse_row(line, objects_of_relation)
-            db.insert(table, tup)
-        try:
-            line = next(lines)
-        except StopIteration:
-            line = None
+    end = len(text)
+    while i < end:
+        if text[i] != '\n':
+            i, (table, tup) = wsl.lex_row(text, i, lexers_of_relation)
+            tokens_of_relation[table].append(tup)
+        else:
+            i += 1
 
-    db.build_indices()
+    tables = { table.name: [] for table in schema.tables.values() }
 
-    return db
+    for tablename, rows in tables.items():
+        ps = decoders_of_relation[tablename]
+        for toks in tokens_of_relation[tablename]:
+            rows.append(tuple(f(x) for f, x in zip(ps, toks)))
+
+    return tables
 
 
 if __name__ == '__main__':

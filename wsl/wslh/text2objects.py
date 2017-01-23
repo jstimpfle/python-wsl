@@ -61,42 +61,42 @@ def parse_block(dct, indent, text, i):
             break
         i += indent
         i, kw = parse_keyword(text, i)
-        parser = dct.get(kw)
-        if parser is None:
+        lexer = dct.get(kw)
+        if lexer is None:
             raise make_parse_exc('Found unexpected field "%s"' %(kw,), text, i)
-        i, val = parser(text, i)
+        i, val = lexer(text, i)
         out.append((kw, val))
     return i, out
 
 
-def space_and_then(valueparser):
-    def space_and_then_parser(text, i):
+def space_and_then(valuelexer):
+    def space_and_then_lexer(text, i):
         i = parse_space(text, i)
-        i, v = valueparser(text, i)
+        i, v = valuelexer(text, i)
         return i, v
-    return space_and_then_parser
+    return space_and_then_lexer
 
 
-def newline_and_then(valueparser):
-    def newline_and_then_parser(text, i):
+def newline_and_then(valuelexer):
+    def newline_and_then_lexer(text, i):
         i = parse_newline(text, i)
-        i, v = valueparser(text, i)
+        i, v = valuelexer(text, i)
         return i, v
-    return newline_and_then_parser
+    return newline_and_then_lexer
 
 
-def make_keyvalue_parser(keyparser, valueparser):
-    def keyvalue_parser(text, i):
+def make_keyvalue_lexer(keylexer, valuelexer):
+    def keyvalue_lexer(text, i):
         i = parse_space(text, i)
-        i, k = keyparser(text, i)
+        i, k = keylexer(text, i)
         i = parse_newline(text, i)
-        i, v = valueparser(text, i)
+        i, v = valuelexer(text, i)
         return i, (k, v)
-    return keyvalue_parser
+    return keyvalue_lexer
 
 
-def make_struct_parser(dct, indent):
-    def struct_parser(text, i):
+def make_struct_lexer(dct, indent):
+    def struct_lexer(text, i):
         i, items = parse_block(dct, indent, text, i)
         struct = {}
         for k, v in items:
@@ -108,94 +108,94 @@ def make_struct_parser(dct, indent):
         for k in dct.keys():
             struct.setdefault(k, None)
         return i, struct
-    return struct_parser
+    return struct_lexer
 
 
-def make_option_parser(parser):
-    def option_parser(text, i):
+def make_option_lexer(lexer):
+    def option_lexer(text, i):
         end = len(text)
         if i < end and text[i] == '!':
-            i, val = parser(text, i+1)
+            i, val = lexer(text, i+1)
         elif i < end and text[i] == '?':
             i, val = i+1, None
         else:
             raise make_parse_exc('Expected option ("?", or "!" followed by value)', text, i)
         return i, val
-    return option_parser
+    return option_lexer
 
 
-def make_dict_parser(key_parser, val_parser, indent):
-    item_parser = make_keyvalue_parser(key_parser, val_parser)
-    def dict_parser(text, i):
-        i, items = parse_block({ 'value': item_parser }, indent, text, i)
+def make_dict_lexer(key_lexer, val_lexer, indent):
+    item_lexer = make_keyvalue_lexer(key_lexer, val_lexer)
+    def dict_lexer(text, i):
+        i, items = parse_block({ 'value': item_lexer }, indent, text, i)
         out = {}
         for _, (k, v) in items:
             if k in out:
                 raise make_parse_exc('Key "%s" used multiple times in this block' %(k,), text, i)
             out[k] = v
         return i, out
-    return dict_parser
+    return dict_lexer
 
 
-def make_list_parser(parser, indent):
-    def list_parser(text, i):
-        dct = { 'value': parser }
+def make_list_lexer(lexer, indent):
+    def list_lexer(text, i):
+        dct = { 'value': lexer }
         i, items = parse_block(dct, indent, text, i)
         out = []
         for _, v in items:
             out.append(v)
         return i, out
-    return list_parser
+    return list_lexer
 
 
-def doparse(parser, text):
-    i, r = parser(text, 0)
+def run_lexer(lexer, text):
+    i, r = lexer(text, 0)
     if i != len(text):
         raise make_parse_exc('Unconsumed text', text, i)
     return r
 
 
-def make_parser_from_spec(lookup_primparser, spec, indent):
+def make_lexer_from_spec(lookup_primlexer, spec, indent):
     nextindent = indent + INDENTSPACES
     typ = type(spec)
 
     if typ == Value:
-        parser = lookup_primparser(spec.primtype)
-        if parser is None:
-            raise ValueError('There is no parser for datatype "%s"' %(spec.primtype,))
-        return parser
+        lexer = lookup_primlexer(spec.primtype)
+        if lexer is None:
+            raise ValueError('There is no lexer for datatype "%s"' %(spec.primtype,))
+        return lexer
 
     elif typ == Struct:
         dct = {}
         for k, v in spec.childs.items():
-            subparser = make_parser_from_spec(lookup_primparser, v, nextindent)
+            sublexer = make_lexer_from_spec(lookup_primlexer, v, nextindent)
             if type(v) in [Value, Option]:
-                dct[k] = space_and_then(subparser)
+                dct[k] = space_and_then(sublexer)
             else:
-                dct[k] = newline_and_then(subparser)
-        return make_struct_parser(dct, indent)
+                dct[k] = newline_and_then(sublexer)
+        return make_struct_lexer(dct, indent)
 
     elif typ == Option:
-        subparser = make_parser_from_spec(lookup_primparser, spec.childs['_val_'], indent)
-        return make_option_parser(subparser)
+        sublexer = make_lexer_from_spec(lookup_primlexer, spec.childs['_val_'], indent)
+        return make_option_lexer(sublexer)
 
     elif typ == List:
-        val_parser = make_parser_from_spec(lookup_primparser, spec.childs['_val_'], nextindent)
+        val_lexer = make_lexer_from_spec(lookup_primlexer, spec.childs['_val_'], nextindent)
         if type(spec.childs['_val_']) == Value:
-            p = space_and_then(val_parser)
+            p = space_and_then(val_lexer)
         else:
-            p = newline_and_then(val_parser)
-        return make_list_parser(p, indent)
+            p = newline_and_then(val_lexer)
+        return make_list_lexer(p, indent)
 
     elif typ == Dict:
-        key_parser = make_parser_from_spec(lookup_primparser, spec.childs['_key_'], nextindent)
-        val_parser = make_parser_from_spec(lookup_primparser, spec.childs['_val_'], nextindent)
-        return make_dict_parser(key_parser, val_parser, indent)
+        key_lexer = make_lexer_from_spec(lookup_primlexer, spec.childs['_key_'], nextindent)
+        val_lexer = make_lexer_from_spec(lookup_primlexer, spec.childs['_val_'], nextindent)
+        return make_dict_lexer(key_lexer, val_lexer, indent)
 
     assert False  # missing case
 
 
-def text2objects(lookup_primparser, spec, text):
+def text2objects(lookup_primlexer, spec, text):
     assert isinstance(text, str)
-    parser = make_parser_from_spec(lookup_primparser, spec, 0)
-    return doparse(parser, text)
+    lexer = make_lexer_from_spec(lookup_primlexer, spec, 0)
+    return run_lexer(lexer, text)

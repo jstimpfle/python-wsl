@@ -37,7 +37,7 @@ bars: dict for (c d) (bar c d)
 """)
 
 
-mydatabase = wsl.parse_db(schemastr=schemastr, dbstr=dbstr)
+mytables = wsl.parse_db(schemastr=schemastr, dbstr=dbstr)
 
 
 myobject = {
@@ -47,6 +47,8 @@ myobject = {
         42: { 'c': 42, 'd': 0, 's': None }
     }
 }
+
+myjson = json.dumps(myobject)
 
 
 mytext = """\
@@ -77,20 +79,54 @@ def json_repr(x):
     return json.dumps(x, sort_keys=True, indent=2, ensure_ascii=False)
 
 
-def lookup_primparser(primtype):
+def lookup_primlexer(primtype):
     # inconsistent naming... :(
     domain = myschema.domains.get(primtype)
     if domain is None:
-        assert False
+        return None
+    return domain.funcs.wsllex
+
+
+def lookup_primunlexer(primtype):
+    # inconsistent naming... :(
+    domain = myschema.domains.get(primtype)
+    if domain is None:
+        return None
+    return domain.funcs.wslunlex
+
+
+def lookup_primdecoder(primtype):
+    # inconsistent naming... :(
+    domain = myschema.domains.get(primtype)
+    if domain is None:
+        return None
     return domain.funcs.decode
 
 
-def lookup_primformatter(primtype):
+def lookup_primencoder(primtype):
     # inconsistent naming... :(
     domain = myschema.domains.get(primtype)
     if domain is None:
-        assert False
-    return domain.funcs.encode
+        return None
+    return domain.funcs.format
+
+
+def lookup_primwriter(primtype):
+    domain = myschema.domains.get(primtype)
+    if domain is None:
+        return None
+    encoder = domain.funcs.encode
+    unlexer = domain.funcs.wslunlex
+    def primwriter(value):
+        return unlexer(encoder(value))
+    return primwriter
+
+
+def lookup_jsontype(primtype):
+    domain = myschema.domains.get(primtype)
+    if domain is None:
+        return None
+    return domain.funcs.jsontype
 
 
 def test_rows2objects():
@@ -101,14 +137,14 @@ def test_rows2objects():
 
     print('Database:')
     print('=========')
-    for key, rows in sorted(mydatabase.tables.items()):
+    for key, rows in sorted(mytables.items()):
         print(key)
         print('-' * len(key))
         for row in sorted(rows):
             print(row)
         print()
 
-    objects = wslh.rows2objects(myspec, mydatabase.tables)
+    objects = wslh.rows2objects(myspec, mytables)
 
     assert isinstance(objects, dict)
 
@@ -151,7 +187,7 @@ def test_text2objects():
     print('=========================')
     print()
 
-    objects = wslh.text2objects(lookup_primparser, myspec, mytext)
+    objects = wslh.text2objects(lookup_primlexer, myspec, mytext)
 
     print(objects)
 
@@ -164,11 +200,24 @@ def test_objects2text():
     print('=========================')
     print()
 
-    text = wslh.objects2text(lookup_primformatter, myspec, myobject)
+    text = wslh.objects2text(lookup_primwriter, myspec, myobject)
 
     print(text)
 
     return text
+
+
+def test_json2objects():
+    print()
+    print('TESTING json2objects()...')
+    print('=========================')
+    print()
+
+    objects = wslh.json2objects(lookup_primdecoder, lookup_jsontype, myspec, myjson)
+
+    print(objects)
+
+    return objects
 
 
 if __name__ == '__main__':
@@ -176,8 +225,12 @@ if __name__ == '__main__':
     tables = test_objects2rows()
     objects2 = test_text2objects()
     text = test_objects2text()
+    objects2 = test_json2objects()
 
     assert json_repr(objects) == json_repr(myobject)
-    assert json_repr(tables) == json_repr(mydatabase.tables)
+    assert json_repr(tables) == json_repr(mytables)
+    print()
+    print(objects)
+    print(objects2)
     assert objects == objects2
     assert text == mytext
