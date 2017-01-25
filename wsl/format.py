@@ -34,8 +34,8 @@ def format_values(row, encoders):
         wsl.FormatError: if formatting fails.
     """
     x = []
-    for val, encode in zip(tup, encoders):
-        x.append(encode(val))
+    for val, (encode, unlex) in zip(tup, encoders):
+        x.append(unlex(encode(val)))
     return ' '.join(x) + '\n'
 
 
@@ -52,35 +52,37 @@ def format_row(table, row, encoders):
         wsl.FormatError: if formatting fails.
     """
     x = [table]
-    for val, encode in zip(row, encoders):
-        x.append(encode(val))
+    for val, (encode, unlex) in zip(row, encoders):
+        x.append(unlex(encode(val)))
     return ' '.join(x) + '\n'
 
 
-def format_db(db, inline_schema):
+def format_db(schema, tables, inline_schema):
     """Convenience function for formatting a WSL database.
 
     Args:
-        db (wsl.Database): The database to format.
+        schema (wsl.Schema): schema object
+        db (dict): A *dict* mapping each table name to a table (list of rows)
         inline_schema (bool): Whether to include the schema (in escaped form).
     Returns:
-        An iterator yielding chunks of encoded text.
-        If *inline_schema* is True, the first chunk is the textual
-        representation of the schema, each line being escaped with %
-        as required for WSL inline notation.
-        Each following yielded chunk is the result of encoding one row of the
-        database (as returned by *format_row()*).
+        str: The formatted database
     Raises:
         wsl.FormatError: if formatting fails.
     """
+    chunks = []
+
     if inline_schema:
-        yield format_schema(db.schema, escape=True)
-    for table in sorted(db.tables):
+        chunks.append(format_schema(db.schema, escape=True))
+
+    for table in sorted(tables):
         encoders = []
-        for x in db.schema.tables[table].columns:
-            encoders.append(db.schema.domains[x].funcs.encode)
+        for x in schema.tables[table].columns:
+            funcs = schema.domains[x].funcs
+            encoders.append((funcs.encode, funcs.wslunlex))
         try:
-            for row in sorted(db.tables[table]):
-                yield format_row(table, row, encoders)
+            for row in sorted(tables[table]):
+                chunks.append(format_row(table, row, encoders))
         except wsl.FormatError as e:
             raise wsl.FormatError('Failed to format database row %s' % (row,)) from e
+
+    return ''.join(chunks)
