@@ -265,13 +265,13 @@ def parse_tree(lookup_type, lines, primtypes=None, li=None, curindent=None):
                 spec = Set(childs, query)
 
             elif membertype == "list":
-                if set(childs) != set(['_val_']):
-                    raise ParseError('List member at %s: Need _val_ child (and no more)' %(line.desc(),))
+                if set(childs) != set(['_idx_', '_val_']):
+                    raise ParseError('List member at %s: Need _idx_ and _val_ childs (and no more)' %(line.desc()))
                 spec = List(childs, query)
 
             elif membertype == "dict":
                 if set(childs) != set(['_key_', '_val_']):
-                    raise ParseError('Dict member at %s: Need _key_ and _val_ childs (and no more)' %(line.desc(), childs))
+                    raise ParseError('Dict member at %s: Need _key_ and _val_ childs (and no more)' %(line.desc()))
                 spec = Dict(childs, query)
 
         else:
@@ -312,72 +312,3 @@ def parse_spec(wslschema, spec):
     _, tree = parse_tree(lookup_type, parsed_lines)
 
     return Struct(tree, None)
-
-
-def testit():
-    import wsl
-    wslschema = wsl.parse_schema("""\
-DOMAIN PID ID
-DOMAIN CID ID
-DOMAIN String String
-TABLE Person PID String String String
-TABLE Course CID String
-TABLE Tutor PID CID
-TABLE Lecturer PID CID
-REFERENCE TutorPid Tutor pid * => Person pid * * *
-REFERENCE TutorCid Tutor * cid => Course cid *
-REFERENCE LecturerPid Tutor pid * => Person pid * * *
-REFERENCE LecturerCid Tutor * cid => Course cid *
-""")
-
-    lookup_type = make_type_lookup(wslschema)
-
-    spec = """\
-Person: dict for (pid fn ln abbr) (Person pid fn ln abbr)
-    _key_: value pid
-    _val_: struct
-        id: value pid
-        firstname: value fn
-        lastname: value ln
-        abbr: value abbr
-        lecturing: list for (cid) (Lecturer pid cid)
-            _val_: value cid
-        tutoring: list for (cid) (Tutor pid cid)
-            _val_: value cid
-
-Course: dict for (cid name) (Course cid name)
-    _key_: value cid
-    _val_: struct
-        id: value cid
-        name: value name
-        lecturer: list for (pid) (Lecturer pid cid)
-            _val_: value pid
-        tutor: list for (pid) (Tutor pid cid)
-            _val_: value pid
-
-Tutor: set for (pid cid) (Tutor pid cid)
-    _val_: struct
-        person: value pid
-        course: value cid
-
-Lecturer: set for (pid cid) (Lecturer pid cid)
-    _val_: struct
-        person: value pid
-        course: value cid
-"""
-
-    parsed_lines = parse_lines(spec.splitlines())
-    print('Lines:')
-    print()
-    print(parsed_lines)
-    print()
-
-    _, bar = parse_tree(lookup_type, parsed_lines)
-    print('Tree:')
-    print()
-    print(bar)
-    print()
-
-
-if __name__ == '__main__':
-    testit()

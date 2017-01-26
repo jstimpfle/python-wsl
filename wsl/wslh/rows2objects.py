@@ -73,11 +73,14 @@ def fromdb_list(cols, rows, objs, spec, database):
 
     newcols, newrows, newobjs, _ = find_child_rows(cols, rows, lsts, spec.query, database)
 
-    pairs = fromdb(newcols, newrows, newobjs, spec.childs['_val_'], database)
-    for lst, val in pairs:
-        lst.append(val)
+    idxpairs = fromdb(newcols, newrows, newobjs, spec.childs['_idx_'], database)
+    valpairs = fromdb(newcols, newrows, newobjs, spec.childs['_val_'], database)
+    assert len(idxpairs) == len(valpairs)
+    for (lst1, idx), (lst2, val) in zip(idxpairs, valpairs):
+        assert lst1 is lst2
+        lst1.append((idx, val))
 
-    return list(zip(objs, lsts))
+    return [(obj, [val for idx, val in sorted(lst)]) for (obj, lst) in zip(objs, lsts)]
 
 
 def fromdb_dict(cols, rows, objs, spec, database):
