@@ -72,7 +72,7 @@ def format_db(schema, tables, inline_schema):
     chunks = []
 
     if inline_schema:
-        chunks.append(format_schema(db.schema, escape=True))
+        chunks.append(format_schema(schema, escape=True))
 
     for table in sorted(tables):
         encoders = []
