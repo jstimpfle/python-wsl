@@ -68,6 +68,19 @@ def fromdb_option(cols, rows, objs, spec, database):
     return list(zip(objs, values))
 
 
+def fromdb_set(cols, rows, objs, spec, database):
+    sets = [set() for _ in objs]
+
+    newcols, newrows, newobjs, _ = find_child_rows(cols, rows, sets, spec.query, database)
+
+    pairs = fromdb(newcols, newrows, newobjs, spec.childs['_val_'], database)
+
+    for set_, values in pairs:
+        set_.update(values)
+
+    return list(zip(objs, sets))
+
+
 def fromdb_list(cols, rows, objs, spec, database):
     lsts = [[] for _ in objs]
 
@@ -107,6 +120,8 @@ def fromdb(cols, rows, objs, spec, database):
         return fromdb_struct(cols, rows, objs, spec, database)
     elif typ == Option:
         return fromdb_option(cols, rows, objs, spec, database)
+    elif typ == Set:
+        return fromdb_set(cols, rows, objs, spec, database)
     elif typ == List:
         return fromdb_list(cols, rows, objs, spec, database)
     elif typ == Dict:

@@ -76,12 +76,15 @@ def todb_option(cols, rows, objs, spec, database):
 def todb_list(cols, rows, objs, spec, database):
     nextcols = cols + spec.query.freshvariables
     nextrows = []
-    nextobjs = []
+    nextobjs_idxs = []
+    nextobjs_vals = []
     for row, lst in zip(rows, objs):
-        for item in lst:
+        for i, item in enumerate(lst):
             nextrows.append(row + tuple(Settable() for _ in spec.query.freshvariables))
-            nextobjs.append(item)
-    todb(nextcols, nextrows, nextobjs, spec.childs['_val_'], database)
+            nextobjs_idxs.append(i)
+            nextobjs_vals.append(item)
+    todb(nextcols, nextrows, nextobjs_idxs, spec.childs['_idx_'], database)
+    todb(nextcols, nextrows, nextobjs_vals, spec.childs['_val_'], database)
     add_rows(spec.query, nextcols, nextrows, database)
 
 
@@ -117,7 +120,7 @@ def todb(cols, rows, objs, spec, database):
         assert False
 
 
-def objects2rows(objs, spec):
+def objects2rows(spec, objs):
     assert any(isinstance(spec, t) for t in [Value, Struct, Set, List, Dict])
     database = {}
 
