@@ -121,7 +121,7 @@ def todb(cols, rows, objs, spec, database):
 
 
 def objects2rows(spec, objs):
-    assert any(isinstance(spec, t) for t in [Value, Struct, Set, List, Dict])
+    assert any(isinstance(spec, t) for t in [Value, Struct, Option, Set, List, Dict])
     database = {}
 
     todb((), [()], [objs], spec, database)
