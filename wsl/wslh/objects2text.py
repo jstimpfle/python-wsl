@@ -1,122 +1,124 @@
-import collections
 import io
-
 from .datatypes import Value, Struct, Option, Set, List, Dict
 
 
-INDENTSPACES = 4
+INDENTSPACES = '    '
 
 
-def make_primvalue_writer(primwriter):
-    def write_primvalue(writer, data):
-        writer.write(' ')
-        writer.write(primwriter(data))
-        writer.write('\n')
-    return write_primvalue
+def add_whitespace(spec, write):
+    if type(spec) == Value:
+        def spnl(writer, data):
+            writer.write(' ')
+            write(writer, data)
+            writer.write('\n')
+        return spnl
+    elif type(spec) == Option:
+        def sp(writer, data):
+            writer.write(' ')
+            write(writer, data)
+        return sp
+    else:
+        def nl(writer, data):
+            writer.write('\n')
+            write(writer, data)
+        return nl
 
 
-def newline_and_then(valuewriter):
-    def write_newline_and_then(writer, data):
-        writer.write('\n')
-        valuewriter(writer, data)
-    return write_newline_and_then
+def value2text(look, spec, indent):
+    fmter = look(spec.primtype)
+    if fmter is None:
+        raise wsl.InvalidArgument('No primvalue formatter for type "%s"' %(spec,))
+    def write_value(writer, data):
+        writer.write(fmter(data))
+    return write_value
 
 
-def make_keyvalue_writer(keywriter, valuewriter, indent):
-    def write_keyvalue(writer, data):
-        k, v = data
-        writer.write(' ')
-        keywriter(writer, k)
-        writer.write('\n')
-        valuewriter(writer, v)
-    return write_keyvalue
-
-
-def make_struct_writer(dct, indent):
-    indentstr = ' ' * indent
+def struct2text(look, spec, indent):
+    items = []
+    for key, sub_spec in sorted(spec.childs.items()):
+        write_sub = any2text(look, sub_spec, indent + INDENTSPACES)
+        items.append((key, add_whitespace(sub_spec, write_sub)))
     def write_struct(writer, data):
-        for key, write_cld in dct.items():
-            writer.write('%s%s' %(indentstr, key))
-            if key not in data:
-                raise ValueError('Missing field "%s"\n' %(key,))
-            val = data[key]
-            write_cld(writer, val)
-            if indent == 0:
-                writer.write('\n')  # special quirk
+        for key, write_sub in items:
+            writer.write(indent)
+            writer.write(key)
+            write_sub(writer, data[key])
     return write_struct
 
 
-def make_option_writer(write_val):
+def option2text(look, spec, indent):
+    sub_spec = spec.childs['_val_']
+    write_sub = any2text(look, sub_spec, indent)
+    write_sub = add_whitespace(sub_spec, write_sub)
     def write_option(writer, data):
         if data is None:
-            writer.write(' ?\n')
+            writer.write('?\n')
         else:
-            writer.write(' !\n')
-            write_val(writer, data)
+            writer.write('!')
+            write_sub(writer, data)
     return write_option
 
 
-def make_list_writer(write_value, indent):
-    indentstr = ' ' * indent
+def set2text(look, spec, indent):
+    sub_spec = spec.childs['_val_']
+    write_sub = any2text(look, sub_spec, indent + INDENTSPACES)
+    write_sub = add_whitespace(sub_spec, write_sub)
+    def write_set(writer, data):
+        for item in data:
+            writer.write(indent)
+            writer.write('val')
+            write_sub(writer, item)
+    return write_set
+
+
+def list2text(look, spec, indent):
+    sub_spec = spec.childs['_val_']
+    write_sub = any2text(look, sub_spec, indent + INDENTSPACES)
+    write_sub = add_whitespace(sub_spec, write_sub)
     def write_list(writer, data):
-        if not isinstance(data, list):
-            raise ValueError('list expected')
-        writer.write('\n')
-        for value in data:
-            writer.write(indentstr)
-            write_value(writer, value)
+        for item in data:
+            writer.write(indent)
+            writer.write('val')
+            write_sub(writer, item)
     return write_list
 
 
-def make_dict_writer(write_key, write_value, indent):
-    indentstr = ' ' * indent
+def dict2text(look, spec, indent):
+    key_spec = spec.childs['_key_']
+    val_spec = spec.childs['_val_']
+    assert type(key_spec) == Value
+    write_key = any2text(look, key_spec, indent + INDENTSPACES)
+    write_val = any2text(look, val_spec, indent + INDENTSPACES)
+    write_val = add_whitespace(val_spec, write_val)
     def write_dict(writer, data):
-        for key, value in sorted(data.items()):
-            writer.write('\n')
-            writer.write(indentstr)
-            writer.write('value')
+        for key, val in sorted(data.items()):
+            writer.write(indent)
+            writer.write('val ')
             write_key(writer, key)
-            write_value(writer, value)
+            write_val(writer, val)
     return write_dict
 
 
-def make_writer_from_spec(lookup_primwriter, spec, indent):
-    nextindent = indent + INDENTSPACES
+def any2text(look, spec, indent):
     typ = type(spec)
-
     if typ == Value:
-        primwriter = lookup_primwriter(spec.primtype)
-        if primwriter is None:
-            raise ValueError('There is no primwriter for datatype "%s"' %(spec.primtype,))
-        return make_primvalue_writer(primwriter)
-
+        return value2text(look, spec, indent)
     elif typ == Struct:
-        dct = collections.OrderedDict()
-        for k, v in spec.childs.items():
-            dct[k] = make_writer_from_spec(lookup_primwriter, v, nextindent)
-
-        return make_struct_writer(dct, indent)
-
-
+        return struct2text(look, spec, indent)
     elif typ == Option:
-        val_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_val_'], indent)
-        return make_option_writer(val_writer)
-
+        return option2text(look, spec, indent)
+    elif typ == Set:
+        return set2text(look, spec, indent)
     elif typ == List:
-        val_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_val_'], nextindent)
-        return make_list_writer(val_writer, indent)
-
+        return list2text(look, spec, indent)
     elif typ == Dict:
-        key_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_key_'], nextindent)
-        val_writer = make_writer_from_spec(lookup_primwriter, spec.childs['_val_'], nextindent)
-        return make_dict_writer(key_writer, val_writer, indent)
-
-    assert False  # missing case
+        return dict2text(look, spec, indent)
+    else:
+        assert False
 
 
-def objects2text(lookup_primwriter, spec, obj):
-    sio = io.StringIO()
-    writer = make_writer_from_spec(lookup_primwriter, spec, 0)
-    writer(sio, obj)
-
-    return sio.getvalue()
+def objects2text(lookup_primformatter, spec, data):
+    write = any2text(lookup_primformatter, spec, '')
+    writer = io.StringIO()
+    write(writer, data)
+    return writer.getvalue()

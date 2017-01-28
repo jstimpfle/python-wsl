@@ -127,7 +127,7 @@ def make_option_lexer(lexer):
 def make_dict_lexer(key_lexer, val_lexer, indent):
     item_lexer = make_keyvalue_lexer(key_lexer, val_lexer)
     def dict_lexer(text, i):
-        i, items = parse_block({ 'value': item_lexer }, indent, text, i)
+        i, items = parse_block({ 'val': item_lexer }, indent, text, i)
         out = {}
         for _, (k, v) in items:
             if k in out:
@@ -139,7 +139,7 @@ def make_dict_lexer(key_lexer, val_lexer, indent):
 
 def make_list_lexer(lexer, indent):
     def list_lexer(text, i):
-        dct = { 'value': lexer }
+        dct = { 'val': lexer }
         i, items = parse_block(dct, indent, text, i)
         out = []
         for _, v in items:

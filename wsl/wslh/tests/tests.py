@@ -53,25 +53,22 @@ myjson = json.dumps(myobject)
 
 mytext = """\
 bars
-    value 3
+    val 3
         c 3
         d 666
         s !
             a 1
             b 2
-
-    value 6
+    val 6
         c 6
         d 1024
         s !
             a 4
             b 5
-
-    value 42
+    val 42
         c 42
         d 0
         s ?
-
 """
 
 
@@ -165,7 +162,7 @@ def test_objects2rows():
     print('========')
     print(json_repr(myobject))
 
-    tables = wslh.objects2rows(myobject, myspec)
+    tables = wslh.objects2rows(myspec, myobject)
 
     print()
     print('RESULTS')
