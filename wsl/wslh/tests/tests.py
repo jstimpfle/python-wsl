@@ -4,6 +4,10 @@ import wsl
 import wsl.wslh as wslh
 
 
+def canonical_json(objs):
+    return json.dumps(objs, ensure_ascii=True, sort_keys=True)
+
+
 schemastr = """
 DOMAIN Int Int
 TABLE foo Int Int Int
@@ -48,7 +52,14 @@ myobject = {
     }
 }
 
-myjson = json.dumps(myobject)
+
+myjsonobject = {
+    'bars': {
+        '3': { 'c': 3, 'd': 666, 's': { 'a': 1, 'b': 2 } },
+        '6': { 'c': 6, 'd': 1024, 's': { 'a': 4, 'b': 5 } },
+        '42': { 'c': 42, 'd': 0, 's': None }
+    }
+}
 
 
 mytext = """\
@@ -70,10 +81,6 @@ bars
         d 0
         s ?
 """
-
-
-def json_repr(x):
-    return json.dumps(x, sort_keys=True, indent=2, ensure_ascii=False)
 
 
 def lookup_primlexer(primtype):
@@ -126,6 +133,17 @@ def lookup_jsontype(primtype):
     return domain.funcs.jsontype
 
 
+def lookup_jsonformatter(primtype, is_dict_key):
+    domain = myschema.domains.get(primtype)
+    if domain is None:
+        return None
+    encode = domain.funcs.encode
+    jsonunlex = wsl.make_jsonunlex(domain.funcs.jsontype, is_dict_key)
+    def jsonformatter(obj):
+        return jsonunlex(encode(obj))
+    return jsonformatter
+
+
 def test_rows2objects():
     print()
     print('TESTING rows2objects()...')
@@ -147,7 +165,7 @@ def test_rows2objects():
 
     print('RESULT')
     print('======')
-    print(json_repr(objects))
+    print(canonical_json(objects))
 
     return objects
 
@@ -160,7 +178,7 @@ def test_objects2rows():
 
     print('Objects:')
     print('========')
-    print(json_repr(myobject))
+    print(canonical_json(myobject))
 
     tables = wslh.objects2rows(myspec, myobject)
 
@@ -210,11 +228,24 @@ def test_json2objects():
     print('=========================')
     print()
 
-    objects = wslh.json2objects(lookup_primdecoder, lookup_jsontype, myspec, myjson)
+    objects = wslh.json2objects(lookup_primdecoder, lookup_jsontype, myspec, myjsonobject)
 
     print(objects)
 
     return objects
+
+
+def test_objects2json():
+    print()
+    print('TESTING objects2json()...')
+    print('=========================')
+    print()
+
+    jsonobject = wslh.objects2json(lookup_jsonformatter, myspec, myobject)
+
+    print(jsonobject)
+
+    return jsonobject
 
 
 if __name__ == '__main__':
@@ -223,11 +254,10 @@ if __name__ == '__main__':
     objects2 = test_text2objects()
     text = test_objects2text()
     objects2 = test_json2objects()
+    jsonobject = test_objects2json()
 
-    assert json_repr(objects) == json_repr(myobject)
-    assert json_repr(tables) == json_repr(mytables)
-    print()
-    print(objects)
-    print(objects2)
+    assert canonical_json(objects) == canonical_json(myobject)
+    assert canonical_json(tables) == canonical_json(mytables)
     assert objects == objects2
     assert text == mytext
+    assert jsonobject == myjsonobject

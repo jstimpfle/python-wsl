@@ -129,8 +129,7 @@ def make_parser_from_spec(lookup_primparser, lookup_jsontype, spec):
     assert False  # missing case
 
 
-def json2objects(lookup_primparser, lookup_jsontype, spec, text):
-    assert isinstance(text, str)
+def json2objects(lookup_primparser, lookup_jsontype, spec, objects):
+    # TODO: Check it's a valid json object (int, str, list, dict and what else?)
     parser = make_parser_from_spec(lookup_primparser, lookup_jsontype, spec)
-    objects = json.loads(text)
     return parser(objects)

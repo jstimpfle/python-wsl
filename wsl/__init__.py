@@ -25,6 +25,8 @@ from .wsljson import jsonlex_string
 from .wsljson import jsonlex_int
 from .wsljson import jsonunlex_string
 from .wsljson import jsonunlex_int
+from .wsljson import make_jsonlex
+from .wsljson import make_jsonunlex
 from .domain import get_builtin_domain_parsers
 from .format import format_values
 from .format import format_row
