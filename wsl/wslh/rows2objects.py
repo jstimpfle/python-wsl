@@ -75,8 +75,8 @@ def fromdb_set(cols, rows, objs, spec, database):
 
     pairs = fromdb(newcols, newrows, newobjs, spec.childs['_val_'], database)
 
-    for set_, values in pairs:
-        set_.update(values)
+    for set_, value in pairs:
+        set_.add(value)
 
     return list(zip(objs, sets))
 

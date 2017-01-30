@@ -202,7 +202,7 @@ def test_text2objects():
     print('=========================')
     print()
 
-    objects = wslh.text2objects(lookup_primlexer, myspec, mytext)
+    objects = wslh.text2objects(wsl.make_make_wslreader(myschema), myspec, mytext)
 
     print(objects)
 
@@ -215,7 +215,7 @@ def test_objects2text():
     print('=========================')
     print()
 
-    text = wslh.objects2text(lookup_primwriter, myspec, myobject)
+    text = wslh.objects2text(wsl.make_make_wslwriter(myschema), myspec, myobject)
 
     print(text)
 
@@ -228,7 +228,7 @@ def test_json2objects():
     print('=========================')
     print()
 
-    objects = wslh.json2objects(lookup_primdecoder, lookup_jsontype, myspec, myjsonobject)
+    objects = wslh.json2objects(wsl.make_make_jsonreader(myschema), myspec, myjsonobject)
 
     print(objects)
 
@@ -241,7 +241,7 @@ def test_objects2json():
     print('=========================')
     print()
 
-    jsonobject = wslh.objects2json(lookup_jsonformatter, myspec, myobject)
+    jsonobject = wslh.objects2json(wsl.make_make_jsonwriter(myschema), myspec, myobject)
 
     print(jsonobject)
 

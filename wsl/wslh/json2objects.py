@@ -21,8 +21,8 @@ def make_parse_exc(msg, text, i):
     return ParseException(msg, lineno, charno)
 
 
-def make_struct_parser(dct):
-    def struct_parser(obj):
+def make_struct_reader(dct):
+    def struct_reader(obj):
         if not isinstance(obj, dict):
             raise wsl.ParseError('Cannot parse JSON object as Struct: Expected JSON dict but got %s' %(type(obj),))
         needkeys = set(dct.keys())
@@ -37,99 +37,80 @@ def make_struct_parser(dct):
             except wsl.ParseError as e:
                 raise wsl.ParseError('Cannot parse JSON object "%s"' %(obj[k],)) from e
         return out
-    return struct_parser
+    return struct_reader
 
 
-def make_option_parser(parser):
-    def option_parser(obj):
+def make_option_reader(reader):
+    def option_reader(obj):
         if obj is None:
             return None
         else:
-            return parser(obj)
-    return option_parser
+            return reader(obj)
+    return option_reader
 
 
-def make_list_parser(parser):
-    def list_parser(obj):
+def make_list_reader(reader):
+    def list_reader(obj):
         if not isinstance(obj, list):
             raise wsl.ParseError('Cannot parse JSON object as List: Expected JSON list but got %s' %(type(object),))
-        return [ parser(v) for v in obj ]
-    return list_parser
+        return [ reader(v) for v in obj ]
+    return list_reader
 
 
-def make_dict_parser(key_parser, val_parser):
-    def dict_parser(obj):
+def make_dict_reader(key_reader, val_reader):
+    def dict_reader(obj):
         if not isinstance(obj, dict):
             raise wsl.ParseError('Cannot parse JSON object as Dict: Expected JSON dict but got %s' %(type(object),))
         out = {}
         for k, v in obj.items():
             try:
-                pk = key_parser(k)
+                pk = key_reader(k)
             except wsl.ParseError as e:
                 raise wsl.ParseError('Cannot parse JSON dict key "%s"' %(k,)) from e
             try:
-                vk = val_parser(v)
+                vk = val_reader(v)
             except wsl.ParseError as e:
                 raise wsl.ParseError('Cannot parse JSON dict value "%s"' %(v,)) from e
             out[pk] = vk
         return out
-    return dict_parser
+    return dict_reader
 
 
-def make_json_parser(parser, jsontype):
-    if jsontype == wsl.JSONTYPE_STRING:
-        jsonlexer = wsl.jsonlex_string
-    elif jsontype == wsl.JSONTYPE_INT:
-        jsonlexer = wsl.jsonlex_int
-    else:
-        raise ValueError('only JSONTYPE_STRING and JSONTYPE_INT are supported as jsontypes')
-    def json_parser(x):
-        return parser(jsonlexer(x))
-    return json_parser
-
-
-def make_parser_from_spec(lookup_primparser, lookup_jsontype, spec):
+def make_reader_from_spec(make_reader, spec, is_dict_key):
     typ = type(spec)
 
     if typ == Value:
-        parser = lookup_primparser(spec.primtype)
-        jsontype = lookup_jsontype(spec.primtype)
-        if parser is None:
-            raise ValueError('There is no decoder for datatype "%s"' %(spec.primtype,))
-        if jsontype is None:
-            raise ValueError('There is no jsontype for datatype "%s"' %(spec.primtype,))
-        return make_json_parser(parser, jsontype)
+        reader = make_reader(spec.primtype, is_dict_key)
+        if reader is None:
+            raise ValueError('There is no JSON reader for datatype "%s"' %(spec.primtype,))
+        return reader
 
     elif typ == Struct:
         dct = {}
         for k, v in spec.childs.items():
-            dct[k] = make_parser_from_spec(lookup_primparser, lookup_jsontype, v)
-        return make_struct_parser(dct)
+            dct[k] = make_reader_from_spec(make_reader, v, False)
+        return make_struct_reader(dct)
 
     elif typ == Option:
-        subparser = make_parser_from_spec(lookup_primparser, lookup_jsontype, spec.childs['_val_'])
-        return make_option_parser(subparser)
+        subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
+        return make_option_reader(subreader)
 
     elif typ == List:
-        subparser = make_parser_from_spec(lookup_primparser, lookup_jsontype, spec.childs['_val_'])
-        return make_list_parser(subparser)
+        subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
+        return make_list_reader(subreader)
 
     elif typ == Dict:
         if type(spec.childs['_key_']) != Value:
             raise ValueError('JSON does not support composite dictionary keys')
-        if lookup_jsontype(spec.childs['_key_'].primtype) not in [wsl.JSONTYPE_STRING, wsl.JSONTYPE_INT]:
-            raise ValueError('JSON only supports string literals as dict keys')
 
-        lookup_always_str = lambda _: wsl.JSONTYPE_STRING  # EVIL: JSON supp
-
-        key_parser = make_parser_from_spec(lookup_primparser, lookup_always_str, spec.childs['_key_'])
-        val_parser = make_parser_from_spec(lookup_primparser, lookup_jsontype, spec.childs['_val_'])
-        return make_dict_parser(key_parser, val_parser)
+        key_reader = make_reader_from_spec(make_reader, spec.childs['_key_'], True)
+        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
+        return make_dict_reader(key_reader, val_reader)
 
     assert False  # missing case
 
 
-def json2objects(lookup_primparser, lookup_jsontype, spec, objects):
+def json2objects(make_reader, spec, objects):
     # TODO: Check it's a valid json object (int, str, list, dict and what else?)
-    parser = make_parser_from_spec(lookup_primparser, lookup_jsontype, spec)
-    return parser(objects)
+    reader = make_reader_from_spec(make_reader, spec, False)
+    return reader(objects)

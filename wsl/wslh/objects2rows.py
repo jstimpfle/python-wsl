@@ -73,6 +73,19 @@ def todb_option(cols, rows, objs, spec, database):
     add_rows(spec.query, nextcols, nextrows, database)
 
 
+def todb_set(cols, rows, objs, spec, database):
+    nextcols = cols + spec.query.freshvariables
+    nextrows = []
+    nextobjs_idxs = []
+    nextobjs_vals = []
+    for row, set_ in zip(rows, objs):
+        for item in set_:
+            nextrows.append(row + tuple(Settable() for _ in spec.query.freshvariables))
+            nextobjs_vals.append(item)
+    todb(nextcols, nextrows, nextobjs_vals, spec.childs['_val_'], database)
+    add_rows(spec.query, nextcols, nextrows, database)
+
+
 def todb_list(cols, rows, objs, spec, database):
     nextcols = cols + spec.query.freshvariables
     nextrows = []
@@ -112,6 +125,8 @@ def todb(cols, rows, objs, spec, database):
         todb_struct(cols, rows, objs, spec, database)
     elif typ == Option:
         todb_option(cols, rows, objs, spec, database)
+    elif typ == Set:
+        todb_set(cols, rows, objs, spec, database)
     elif typ == List:
         todb_list(cols, rows, objs, spec, database)
     elif typ == Dict:
