@@ -49,6 +49,14 @@ def make_option_reader(reader):
     return option_reader
 
 
+def make_set_reader(reader):
+    def set_reader(obj):
+        if not isinstance(obj, list):
+            raise wsl.ParseError('CAnnot parse JSON object as Set: Expected JSON list but got %s' %(type(object),))
+        return set([ reader(v) for v in obj ])
+    return set_reader
+
+
 def make_list_reader(reader):
     def list_reader(obj):
         if not isinstance(obj, list):
@@ -94,6 +102,10 @@ def make_reader_from_spec(make_reader, spec, is_dict_key):
     elif typ == Option:
         subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
         return make_option_reader(subreader)
+
+    elif typ == Set:
+        subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
+        return make_set_reader(subreader)
 
     elif typ == List:
         subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
