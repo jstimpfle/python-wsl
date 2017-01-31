@@ -110,11 +110,18 @@ class Reference:
         return out
 
 
+def _issorted(xs):
+    assert isinstance(xs, list)
+    return xs == sorted(xs)
+
+
 class Query:
     def __init__(self, freshvariables, table, variables):
         assert isinstance(freshvariables, tuple)
         assert isinstance(table, str)
         assert isinstance(variables, tuple)
+        assert all(v in variables for v in freshvariables)
+        assert _issorted([variables.index(v) for v in freshvariables])
         self.freshvariables = freshvariables
         self.table = table
         self.variables = variables

@@ -175,7 +175,8 @@ def make_Enum_decode(values):
 
 def make_Enum_encode(values):
     def Enum_encode(value):
-        assert isinstance(value, EnumValue)
+        if not isinstance(value, EnumValue):
+            raise ValueError('Not a valid enum value: %s' %(value,))
         return value.string
 
 

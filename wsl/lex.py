@@ -29,7 +29,8 @@ def lex_identifier(text, i):
 
 
 def unlex_identifier(token):
-    assert isinstance(token, str)
+    if not isinstance(token, str):
+        raise ValueError('Not a string token: %s (%s)' %(token, type(token)))
     return token
 
 
@@ -48,8 +49,10 @@ def lex_string_without_escapes(text, i):
 
 
 def unlex_string_without_escapes(token):
-    assert '[' not in token
-    assert ']' not in token
+    if not isinstance(token, str):
+        raise ValueError()
+    if '[' in token or ']' in token:
+        raise ValueError('Cannot unlex string without escaping: %s' %(token,))
     return '[' + token + ']'
 
 
