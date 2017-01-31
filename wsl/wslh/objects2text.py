@@ -64,7 +64,7 @@ def set2text(look, spec, indent):
     write_sub = any2text(look, sub_spec, indent + INDENTSPACES)
     write_sub = add_whitespace(sub_spec, write_sub)
     def write_set(writer, data):
-        for item in data:
+        for item in sorted(data):
             writer.write(indent)
             writer.write('val')
             write_sub(writer, item)

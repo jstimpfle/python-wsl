@@ -35,7 +35,7 @@ def make_struct_reader(dct):
             try:
                 out[k] = dct[k](obj[k])
             except wsl.ParseError as e:
-                raise wsl.ParseError('Cannot parse JSON object "%s"' %(obj[k],)) from e
+                raise wsl.ParseError('Cannot parse JSON struct value "%s"' %(obj[k],)) from e
         return out
     return struct_reader
 

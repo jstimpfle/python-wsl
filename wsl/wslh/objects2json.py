@@ -39,7 +39,7 @@ def set2json(look, spec):
     convert_sub = any2json(look, sub_spec, False)
     def convert_set(data):
         out = []
-        for item in data:
+        for item in sorted(data):
             out.append(convert_sub(item))
         return out
     return convert_set
