@@ -1,6 +1,11 @@
 """Module wsl.parse: Functionality for parsing a WSL database."""
 
-import wsl
+from .domain import get_builtin_domain_parsers
+from .exceptions import ParseError
+from .lexwsl import lex_wsl_newline
+from .lexwsl import lex_wsl_relation_name
+from .lexwsl import lex_wsl_space
+from .schema import Schema, SchemaDomain, SchemaTable, SchemaKey, SchemaForeignKey
 
 
 def _is_lowercase(c):
@@ -44,7 +49,7 @@ def parse_domain_decl(line, domain_parsers):
     """
     ws = line.split(None, 1)
     if len(ws) != 2:
-        raise wsl.ParseError('Failed to parse domain: expecting name and datatype declaration in line: %s' %(line,))
+        raise ParseError('Failed to parse domain: expecting name and datatype declaration in line: %s' %(line,))
 
     domainname, spec = ws
     ws = spec.split(None, 1)
@@ -52,10 +57,10 @@ def parse_domain_decl(line, domain_parsers):
     param = ws[1] if len(ws) > 1 else ''
     parser = domain_parsers.get(parsername)
     if parser is None:
-        raise wsl.ParseError('Parser "%s" not available while parsing DOMAIN declaration' %(parsername,))
+        raise ParseError('Parser "%s" not available while parsing DOMAIN declaration' %(parsername,))
 
     funcs = parser(param)
-    return wsl.SchemaDomain(domainname, spec, funcs)
+    return SchemaDomain(domainname, spec, funcs)
 
 
 def parse_table_decl(line):
@@ -70,11 +75,11 @@ def parse_table_decl(line):
     """
     ws = line.split()
     if not ws:
-        raise wsl.ParseError('Failed to parse table declaration: %s' %(line,))
+        raise ParseError('Failed to parse table declaration: %s' %(line,))
     name, cols = ws[0], tuple(ws[1:])
     spec = line
 
-    return wsl.SchemaTable(name, spec, cols, colnames=[])
+    return SchemaTable(name, spec, cols, colnames=[])
 
 
 def parse_logic_tuple(line):
@@ -96,11 +101,11 @@ def parse_key_decl(line):
     """
     ws = line.split(None, 1)
     if len(ws) != 2:
-        raise wsl.ParseError('Failed to parse schema key: Expected name and specification in line %s' %(line,))
+        raise ParseError('Failed to parse schema key: Expected name and specification in line %s' %(line,))
 
     name, spec = ws[0], ws[1]
     if not _is_identifier(name):
-        raise wsl.ParseError('Bad KEY name: "%s": Must be an identifier, in line "%s"' %(name, line))
+        raise ParseError('Bad KEY name: "%s": Must be an identifier, in line "%s"' %(name, line))
 
     ix = []
     ws = spec.split()
@@ -108,11 +113,11 @@ def parse_key_decl(line):
     vs = ws[1:]
     for i, v in enumerate(vs):
         if v != '*' and not _is_variable(v):
-            raise wsl.ParseError('Invalid variable name "%s" while parsing key declaration "%s"' %(v, line))
+            raise ParseError('Invalid variable name "%s" while parsing key declaration "%s"' %(v, line))
         elif v != '*':
             ix.append(i)
 
-    return wsl.SchemaKey(name, spec, table, tuple(ix))
+    return SchemaKey(name, spec, table, tuple(ix))
 
 
 def parse_foreignkey_decl(line, tables):
@@ -129,59 +134,59 @@ def parse_foreignkey_decl(line, tables):
     """
     ws = line.split(None, 1)
     if len(ws) < 2:
-        raise wsl.ParseError('Failed to parse REFERENCE declaration "%s": Need a name and a datatype' %(line,))
+        raise ParseError('Failed to parse REFERENCE declaration "%s": Need a name and a datatype' %(line,))
 
     name, spec = ws
     if not _is_identifier(name):
-        raise wsl.ParseError('Bad REFERENCE name: "%s": Must be an identifier, in line "%s"' %(name, line))
+        raise ParseError('Bad REFERENCE name: "%s": Must be an identifier, in line "%s"' %(name, line))
 
     parts = spec.split('=>')
     if len(parts) != 2:
-        raise wsl.ParseError('Could not parse "%s" as REFERENCE constraint' %(line,))
+        raise ParseError('Could not parse "%s" as REFERENCE constraint' %(line,))
 
     lws = parts[0].split(None, 1)
     if len(lws) != 2:
-        raise wsl.ParseError('Could not parse left-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('Could not parse left-hand side of REFERENCE constraint "%s"' %(line,))
     table1, vs1 = lws[0], lws[1].split()
     if table1 not in tables:
-        raise wsl.ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table1, line))
+        raise ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table1, line))
     if len(vs1) != len(tables[table1].columns):
-        raise wsl.ParseError('Wrong number of columns on left-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('Wrong number of columns on left-hand side of REFERENCE constraint "%s"' %(line,))
 
     rws = parts[1].split(None, 1)
     if len(rws) != 2:
-        raise wsl.ParseError('Could not parse right-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('Could not parse right-hand side of REFERENCE constraint "%s"' %(line,))
     table2, vs2 = rws[0], rws[1].split()
     if table2 not in tables:
-        raise wsl.ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table2, line))
+        raise ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table2, line))
     if len(vs2) != len(tables[table2].columns):
-        raise wsl.ParseError('Wrong number of columns on right-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('Wrong number of columns on right-hand side of REFERENCE constraint "%s"' %(line,))
 
     d1, d2 = {}, {}
 
     # build maps (variable -> column index) for both sides
     for (table, vs, d) in [(table1, vs1, d1), (table2, vs2, d2)]:
         if len(vs) != len(tables[table].columns):
-            raise wsl.ParseError('Arity mismatch for table "%s" while parsing KEY constraint "%s %s"' %(table, name, spec))
+            raise ParseError('Arity mismatch for table "%s" while parsing KEY constraint "%s %s"' %(table, name, spec))
 
         for i, v in enumerate(vs):
             if v == '*':
                 continue
             if not _is_variable(v):
-                raise wsl.ParseError('Invalid variable "%s" while parsing REFERENCE constraint "%s %s"' %(v, name, spec))
+                raise ParseError('Invalid variable "%s" while parsing REFERENCE constraint "%s %s"' %(v, name, spec))
 
             if v in d:
-                raise wsl.ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s %s"' %(v, name, name))
+                raise ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s %s"' %(v, name, name))
             d[v] = i
 
     if sorted(d1.keys()) != sorted(d2.keys()):
-        raise wsl.ParseError('Different variables used on both sides of "=>" while parsing REFERENCE constraint "%s %s"' %(name, spec))
+        raise ParseError('Different variables used on both sides of "=>" while parsing REFERENCE constraint "%s %s"' %(name, spec))
 
     # use maps to pair columns
     ix1 = tuple(i for _, i in sorted(d1.items()))
     ix2 = tuple(i for _, i in sorted(d2.items()))
 
-    return wsl.SchemaForeignKey(name, spec, table1, ix1, table2, ix2)
+    return SchemaForeignKey(name, spec, table1, ix1, table2, ix2)
 
 
 def parse_schema(schemastr, domain_parsers=None):
@@ -196,7 +201,7 @@ def parse_schema(schemastr, domain_parsers=None):
         wsl.ParseError: If the parse failed
     """
     if domain_parsers is None:
-        domain_parsers = wsl.get_builtin_domain_parsers()
+        domain_parsers = get_builtin_domain_parsers()
 
     domains = {}
     tables = {}
@@ -217,7 +222,7 @@ def parse_schema(schemastr, domain_parsers=None):
 
         ws = line.split(None, 1)
         if len(ws) != 2:
-            raise wsl.ParseError('Failed to parse line: %s' %(line,))
+            raise ParseError('Failed to parse line: %s' %(line,))
 
         kw, spec = ws
         if kw == 'DOMAIN':
@@ -240,22 +245,70 @@ def parse_schema(schemastr, domain_parsers=None):
     for spec in tablespecs:
         table = parse_table_decl(spec)
         if table.name in tables:
-            raise wsl.ParseError('Redeclaration of table "%s" in line: %s' %(table.name, line))
+            raise ParseError('Redeclaration of table "%s" in line: %s' %(table.name, line))
         tables[table.name] = table
 
     for spec in keyspecs:
         key = parse_key_decl(spec)
         if key.name in keys:
-            raise wsl.ParseError('Redeclaration of key "%s" in line: %s' %(key.name, line))
+            raise ParseError('Redeclaration of key "%s" in line: %s' %(key.name, line))
         keys[key.name] = key
 
     for spec in foreignkeyspecs:
         fkey = parse_foreignkey_decl(spec, tables)
         if fkey.name in foreignkeys:
-            raise wsl.ParseError('Redeclaration of foreign key "%s" in line: "%s"' %(fkey.name, line))
+            raise ParseError('Redeclaration of foreign key "%s" in line: "%s"' %(fkey.name, line))
         foreignkeys[fkey.name] = fkey
 
-    return wsl.Schema(schemastr, domains, tables, keys, foreignkeys)
+    return Schema(schemastr, domains, tables, keys, foreignkeys)
+
+
+def parse_tokens(text, i, lexers):
+    """Parse a database tuple of tokens according to *domain_objects*, separated by single spaces.
+
+    Args:
+        text (str): holds a database tuple.
+        i (int): An index into *text* where the space is supposed to be.
+        lexers (list): A list of lexers corresponding to the columns of the
+            database table.
+    Returns:
+        tuple: A tuple containing the lexed tokens.
+    Raises:
+        wsl.ParseError: The called lexers raise ParseErrors if lexing fails.
+    """
+    end = len(text)
+    toks = []
+    for lexer in lexers:
+        i, _ = lex_wsl_space(text, i)
+        i, tok = lexer(text, i)
+        toks.append(tok)
+    i, _ = lex_wsl_newline(text, i)
+    return i, tuple(toks)
+
+
+def parse_row(text, i, lexers_of_relation):
+    """Parse a database row (a relation name and according tuple of tokens).
+
+    This def lexes a relation name, which is used to lookup a domain object
+    in *objects_of_relation*. Then that object is used to call *parse_tokens()*.
+
+    Args:
+        text (str): holds a database tuple.
+        lexers_of_relation (dict): maps relation names to the list of the
+            lexers of their according columns.
+    Returns:
+        (int, (str, tuple)): The index of the first unconsumed character and a
+        2-tuple holding the lexed relation name and lexed tokens.
+    Raises:
+        wsl.ParseError: if the lex failed.
+    """
+    end = len(text)
+    i, relation = lex_wsl_relation_name(text, i)
+    lexers = lexers_of_relation.get(relation)
+    if lexers is None:
+        raise ParseError('No such table: "%s"' %(relation,))
+    i, tokens = parse_tokens(text, i, lexers)
+    return i, (relation, tokens)
 
 
 def split_schema(text, i):
@@ -309,7 +362,7 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
     """
     assert dbfilepath is None or isinstance(dbfilepath, str)
     assert dbstr is None or isinstance(dbstr, str)
-    assert schema is None or isinstance(schema, wsl.Schema)
+    assert schema is None or isinstance(schema, Schema)
     assert schemastr is None or isinstance(schemastr, str)
     assert domain_parsers is None or isinstance(domain_parsers, dict)
 
@@ -348,7 +401,7 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
     end = len(text)
     while i < end:
         if text[i] != '\n':
-            i, (table, tup) = wsl.lex_row(text, i, lexers_of_relation)
+            i, (table, tup) = parse_row(text, i, lexers_of_relation)
             tokens_of_relation[table].append(tup)
         else:
             i += 1

@@ -4,7 +4,21 @@ Users can add their own domains by providing a parser following the example of
 the built-in ones.
 """
 
-import wsl
+from .exceptions import ParseError
+from .exceptions import FormatError
+from .lexwsl import lex_wsl_space
+from .lexwsl import lex_wsl_newline
+from .lexwsl import lex_wsl_identifier
+from .lexwsl import lex_wsl_relation_name
+from .lexwsl import lex_wsl_string_without_escapes
+from .lexwsl import lex_wsl_string_with_escapes
+from .lexwsl import unlex_wsl_identifier
+from .lexwsl import unlex_wsl_string_without_escapes
+from .lexwsl import unlex_wsl_string_with_escapes
+from .lexjson import lex_json_int
+from .lexjson import lex_json_string
+from .lexjson import unlex_json_int
+from .lexjson import unlex_json_string
 
 
 def split_opts(line):
@@ -24,13 +38,14 @@ def parse_ID_domain(line):
     No special syntax is recognized. Only the bare "ID" is allowed.
     """
     if line:
-        raise wsl.ParseError('Construction of ID domain does not receive any arguments')
+        raise ParseError('Construction of ID domain does not receive any arguments')
     class IDDomain:
-        wsllex = wsl.lex_identifier
-        wslunlex = wsl.unlex_identifier
         decode = ID_decode
         encode = ID_encode
-        jsontype = wsl.JSONTYPE_STRING
+        wsllex = lex_wsl_identifier
+        wslunlex = unlex_wsl_identifier
+        jsonlex = lex_json_string
+        jsonunlex = unlex_json_string
     return IDDomain
 
 
@@ -41,33 +56,36 @@ def parse_String_domain(line):
         if key == 'escape' and val is None:
             escape = True
         else:
-            raise wsl.ParseError('Did not understand String parameterization: %s' %(orig,))
+            raise ParseError('Did not understand String parameterization: %s' %(orig,))
     if escape:
         class StringDomain:
-            wsllex = wsl.lex_string_with_escapes
-            wslunlex = wsl.unlex_string_with_escapes
             decode = String_decode
             encode = String_encode
-            jsontype = wsl.JSONTYPE_STRING
+            wsllex = lex_wsl_string_with_escapes
+            wslunlex = unlex_wsl_string_with_escapes
+            jsonlex = lex_json_string
+            jsonunlex = unlex_json_string
     else:
         class StringDomain:
-            wsllex = wsl.lex_string_without_escapes
-            wslunlex = wsl.unlex_string_without_escapes
             decode = String_decode
             encode = String_encode
-            jsontype = wsl.JSONTYPE_STRING
+            wsllex = lex_wsl_string_without_escapes
+            wslunlex = unlex_wsl_string_without_escapes
+            jsonlex = lex_json_string
+            jsonunlex = unlex_json_string
     return StringDomain
 
 
 def parse_Int_domain(line):
     if line:
-        raise wsl.ParseError('Construction of Integer domain does not receive any arguments')
+        raise ParseError('Construction of Integer domain does not receive any arguments')
     class IntDomain:
-        wsllex = wsl.lex_identifier
-        wslunlex = wsl.unlex_identifier
         decode = Int_decode
         encode = Int_encode
-        jsontype = wsl.JSONTYPE_INT
+        wsllex = lex_wsl_identifier
+        wslunlex = unlex_wsl_identifier
+        jsonlex = lex_json_string
+        jsonunlex = unlex_json_string
     return IntDomain
 
 
@@ -119,23 +137,25 @@ def parse_Enum_domain(line):
     for s in strings:
         values.append(EnumValue(base, s))
     class EnumDomain:
-        wsllex = wsl.lex_identifier
-        wslunlex = wsl.unlex_identifier
         decode = make_Enum_decode(values)
         encode = make_Enum_encode(values)
-        jsontype = wsl.JSONTYPE_STRING
+        wsllex = lex_wsl_identifier
+        wslunlex = unlex_wsl_identifier
+        jsonlex = lex_json_string
+        jsonunlex = unlex_json_string
     return EnumDomain
 
 
 def parse_IPv4_domain(line):
     if line.strip():
-        raise wsl.ParseError('IPv4 domain doesn\'t take any arguments')
+        raise ParseError('IPv4 domain doesn\'t take any arguments')
     class IPv4:
-        wsllex = wsl.lex_identifier
-        wslunlex = wsl.unlex_identifier
         decode = IPv4_decode
         encode = IPv4_encode
-        jsontype = wsl.JSONTYPE_STRING
+        wsllex = lex_wsl_identifier
+        wslunlex = unlex_wsl_identifier
+        jsonlex = lex_json_string
+        jsonunlex = unlex_json_string
     return IPv4
 
 
@@ -159,7 +179,7 @@ def Int_decode(token):
     try:
         return int(token)
     except ValueError as e:
-        raise wsl.ParseError('Failed to parse integer') from e
+        raise ParseError('Failed to parse integer') from e
 
 
 def Int_encode(value):
@@ -191,7 +211,7 @@ def IPv4_decode(token):
             return i, ip
         except ValueError:
             pass
-    raise wsl.ParseError('IPv4 address must be 4-tuple of 1 byte integers (0-255)')
+    raise ParseError('IPv4 address must be 4-tuple of 1 byte integers (0-255)')
 
 
 def IPv4_encode(ip):
@@ -202,7 +222,7 @@ def IPv4_encode(ip):
                 raise ValueError()
         return '%d.%d.%d.%d' %ip
     except ValueError as e:
-        raise wsl.FormatError('Not a valid ip address (need 4-tuple of integers in [0,255])')
+        raise FormatError('Not a valid ip address (need 4-tuple of integers in [0,255])')
 
 
 _builtin_domain_parsers = {
