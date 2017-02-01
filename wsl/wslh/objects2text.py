@@ -1,4 +1,6 @@
 import io
+
+import wsl
 from .datatypes import Value, Struct, Option, Set, List, Dict
 
 
@@ -117,8 +119,8 @@ def any2text(look, spec, indent):
         assert False
 
 
-def objects2text(lookup_primformatter, spec, data):
-    write = any2text(lookup_primformatter, spec, '')
+def objects2text(schema, spec, data):
+    write = any2text(wsl.make_make_wslwriter(schema), spec, '')
     writer = io.StringIO()
     write(writer, data)
     return writer.getvalue()

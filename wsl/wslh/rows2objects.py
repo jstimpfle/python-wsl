@@ -130,9 +130,13 @@ def fromdb(cols, rows, objs, spec, database):
         assert False
 
 
-def rows2objects(spec, database):
-    assert any(isinstance(spec, t) for t in [Value, Struct, Set, List, Dict])
-    assert isinstance(database, dict)
+def rows2objects(schema, spec, database):
+    if not any(isinstance(spec, t) for t in [Value, Struct, Option, Set, List, Dict]):
+        raise TypeError()
+    if not isinstance(database, dict):
+        raise TypeError()
+
     [(topobj, subobj)] = fromdb((), [()], [None], spec, database)
     assert topobj is None
+
     return subobj

@@ -32,7 +32,7 @@ def make_jsonlex(jsontype, is_dict_key):
     if jsontype not in [JSONTYPE_STRING, JSONTYPE_INT]:
         raise ValueError()
     if not isinstance(is_dict_key, bool):
-        raise ValueError()
+        raise TypeError()
     if jsontype == JSONTYPE_STRING or is_dict_key:
         return jsonlex_string
     elif jsontype == JSONTYPE_INT:
@@ -44,7 +44,7 @@ def make_jsonunlex(jsontype, is_dict_key):
     if jsontype not in [JSONTYPE_STRING, JSONTYPE_INT]:
         raise ValueError()
     if not isinstance(is_dict_key, bool):
-        raise ValueError()
+        raise TypeError()
     if jsontype == JSONTYPE_STRING or is_dict_key:
         return jsonunlex_string
     elif jsontype == JSONTYPE_INT:
@@ -54,7 +54,7 @@ def make_jsonunlex(jsontype, is_dict_key):
 
 def make_make_jsonreader(schema):
     if not isinstance(schema, wsl.Schema):
-        raise ValueError()
+        raise TypeError()
     def make_jsonreader(domain, is_dict_key):
         domobj = schema.domains.get(domain)
         if domobj is None:
@@ -74,7 +74,7 @@ def make_make_jsonreader(schema):
 
 def make_make_jsonwriter(schema):
     if not isinstance(schema, wsl.Schema):
-        raise ValueError()
+        raise TypeError()
     def make_jsonwriter(domain, is_dict_key):
         domobj = schema.domains.get(domain)
         if domobj is None:

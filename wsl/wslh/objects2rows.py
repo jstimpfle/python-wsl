@@ -135,8 +135,10 @@ def todb(cols, rows, objs, spec, database):
         assert False
 
 
-def objects2rows(spec, objs):
-    assert any(isinstance(spec, t) for t in [Value, Struct, Option, Set, List, Dict])
+def objects2rows(schema, spec, objs):
+    if not any(isinstance(spec, t) for t in [Value, Struct, Option, Set, List, Dict]):
+        raise TypeError()
+
     database = {}
 
     todb((), [()], [objs], spec, database)

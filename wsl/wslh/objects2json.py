@@ -88,6 +88,6 @@ def any2json(look, spec, is_dict_key):
         assert False
 
 
-def objects2json(lookup_primformatter, spec, data):
-    convert = any2json(lookup_primformatter, spec, False)
+def objects2json(schema, spec, data):
+    convert = any2json(wsl.make_make_jsonwriter(schema), spec, False)
     return convert(data)

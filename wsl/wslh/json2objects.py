@@ -122,7 +122,8 @@ def make_reader_from_spec(make_reader, spec, is_dict_key):
     assert False  # missing case
 
 
-def json2objects(make_reader, spec, objects):
-    # TODO: Check it's a valid json object (int, str, list, dict and what else?)
-    reader = make_reader_from_spec(make_reader, spec, False)
+def json2objects(schema, spec, objects):
+    if not isinstance(schema, wsl.Schema):
+        raise TypeError()
+    reader = make_reader_from_spec(wsl.make_make_jsonreader(schema), spec, False)
     return reader(objects)

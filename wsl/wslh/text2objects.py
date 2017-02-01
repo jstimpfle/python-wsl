@@ -1,5 +1,6 @@
 import re
 
+import wsl
 from .datatypes import Value, Struct, Option, Set, List, Dict
 
 
@@ -115,7 +116,8 @@ def make_option_reader(reader, indent):
     def option_reader(text, i):
         end = len(text)
         if i < end and text[i] == '!':
-            i, val = reader(text, i+1)
+            i = parse_space(text, i+1)
+            i, val = reader(text, i)
         elif i < end and text[i] == '?':
             i, val = i+1, None
         else:
@@ -214,7 +216,10 @@ def make_lexer_from_spec(make_reader, spec, indent):
     assert False  # missing case
 
 
-def text2objects(make_reader, spec, text):
-    assert isinstance(text, str)
-    reader = make_lexer_from_spec(make_reader, spec, 0)
+def text2objects(schema, spec, text):
+    if not isinstance(schema, wsl.Schema):
+        raise TypeError()
+    if not isinstance(text, str):
+        raise TypeError()
+    reader = make_lexer_from_spec(wsl.make_make_wslreader(schema), spec, 0)
     return run_reader(reader, text)
