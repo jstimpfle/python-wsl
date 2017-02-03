@@ -7,14 +7,11 @@ from .datatypes import Value, Struct, Option, Set, List, Dict
 INDENTSPACES = 4
 
 
-class ParseException(Exception):
-    def __init__(self, msg, lineno, charno):
-        self.msg = msg
-        self.lineno = lineno
-        self.charno = charno
+def _chardesc(text, i):
+    if i >= len(text):
+        return '(EOL)'
 
-    def __str__(self):
-        return 'At %d:%d: %s' %(self.lineno, self.charno, self.msg)
+    return '"' + text[i] + '"'
 
 
 def make_parse_exc(msg, text, i):
@@ -25,32 +22,33 @@ def make_parse_exc(msg, text, i):
 
 
 def parse_space(text, i):
-    end = len(text)
     start = i
+    end = len(text)
     if i >= end or text[i] != ' ':
-        raise make_parse_exc('Space character expected', text, i)
+        raise wsl.LexError('Space character', text, i, i, 'Expected space character (0x20) but found 0x%.2x' %(ord(text[i]),))
     return i + 1
 
 
 def parse_newline(text, i):
-    end = len(text)
     start = i
+    end = len(text)
     if i >= end or text[i] != '\n':
-        raise make_parse_exc('End of line (\\n) expected', text, i)
+        raise wsl.LexError('Newline character', text, i, i, 'Expected newline character (0x0a) but found 0x%.2x' %(ord(text[i]),))
     return i + 1
 
 
 def parse_keyword(text, i):
-    end = len(text)
     start = i
+    end = len(text)
     while i < end and text[i].isalpha():
         i += 1
     if i == start:
-        raise make_parse_exc('Keyword expected', text, i)
+        raise wsl.LexError('Keyword', text, i, i, 'Found invalid character "%s with no valid consumed characters' %(_chardesc(text, i),))
     return i, text[start:i]
 
 
 def parse_block(dct, indent, text, i):
+    start = i
     end = len(text)
     out = []
     while True:
@@ -116,7 +114,7 @@ def make_option_reader(reader, indent):
     def option_reader(text, i):
         end = len(text)
         if i < end and text[i] == '!':
-            i = parse_space(text, i+1)
+            i += 1
             i, val = reader(text, i)
         elif i < end and text[i] == '?':
             i, val = i+1, None
@@ -190,6 +188,10 @@ def make_lexer_from_spec(make_reader, spec, indent):
 
     elif typ == Option:
         subreader = make_lexer_from_spec(make_reader, spec.childs['_val_'], indent)
+        if type(spec.childs['_val_']) == Value:
+            p = space_and_then(subreader)
+        else:
+            p = newline_and_then(subreader)
         return make_option_reader(subreader, indent)
 
     elif typ == Set:

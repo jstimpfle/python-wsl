@@ -5,6 +5,8 @@ from .schema import SchemaKey
 from .schema import SchemaForeignKey
 from .database import Database
 from .exceptions import WslValueError
+from .exceptions import LexError
+from .exceptions import UnlexError
 from .exceptions import ParseError
 from .exceptions import FormatError
 from .exceptions import IntegrityError

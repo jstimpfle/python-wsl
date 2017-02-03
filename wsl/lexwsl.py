@@ -16,24 +16,31 @@ def _hexdecode(chars):
     raise wsl.ParseError()
 
 
+def _chardesc(text, i):
+    if i >= len(text):
+        return '(EOL)'
+
+    return '"' + text[i] + '"'
+
+
 def lex_wsl_relation_name(text, i):
+    start = i
     end = len(text)
-    x = i
     if not 0x41 <= ord(text[i]) <= 0x5a and not 0x61 <= ord(text[i]) <= 0x7a:
-        raise wsl.ParseError('Expected table name')
+        raise wsl.LexError('Table name', text, start, i, 'Invalid character "%c" with no valid characters consumed' %(text[i],))
     while i < end and (0x41 <= ord(text[i]) <= 0x5a or 0x61 <= ord(text[i]) <= 0x7a):
         i += 1
-    return i, text[x:i]
+    return i, text[start:i]
 
 
 def lex_wsl_identifier(text, i):
+    start = i
     end = len(text)
-    x = i
     while i < end and ord(text[i]) > 0x20 and ord(text[i]) != 0x7f:
         i += 1
-    if x == i:
-        raise wsl.ParseError('EOL or invalid character while expecting ID')
-    return i, text[x:i]
+    if i == start:
+        raise wsl.LexError('Identifier literal', text, start, i, 'End of line or invalid character with no valid characters read')
+    return i, text[start:i]
 
 
 def unlex_wsl_identifier(token):
@@ -47,11 +54,14 @@ def lex_wsl_string_without_escapes(text, i):
     end = len(text)
 
     if not 0 <= i < end or ord(text[i]) != 0x5b:  # [
-        raise wsl.ParseError('Did not find expected WSL string literal')
+        raise wsl.LexError('String literal', text, start, i, 'String must begin with "[", found: %s' %(_chardesc(text, i)))
 
     i += 1
     while i < end and text[i] != ']':
         i += 1
+
+    if i >= end:
+        raise wsl.LexError('String literal', text, start, i, 'String must end with "]", but encountered end of input')
 
     return i+1, text[start+1:i]
 
@@ -69,7 +79,7 @@ def lex_wsl_string_with_escapes(text, i):
     end = len(text)
 
     if not 0 <= i < end or ord(text[i]) != 0x5b:  # [
-        raise wsl.ParseError('Did not find expected WSL string literal')
+        raise wsl.LexError('String literal', text, start, i, 'String must begin with "[", found: %s' %(_chardesc(text, i)))
 
     i += 1
     cs = []
@@ -87,14 +97,16 @@ def lex_wsl_string_with_escapes(text, i):
                     cs.append(chr(_hexdecode(text[i+2:])))
                     i += 4
                 else:
-                    raise wsl.ParseError('Unknown escape sequence: \\%c' %(c,))
+                    raise wsl.LexError('String literal', text, start, i, 'Unknown escape sequence: \\%c' %(c,))
         else:
             if d < 0x20 or d in [0x5b, 0x7f]:
-                raise wsl.ParseError('Disallowed character %.2x in string literal' %(d,))
+                raise wsl.LexError('String literal', text, start, i, 'invalid character %.2x in string literal' %(d,))
             cs.append(c)
             i += 1
+
     if i == end:
-        raise wsl.ParseError('EOL while looking for closing quote')
+        raise wsl.LexError('String literal', text, start, i, 'String must end with "]", but encountered end of input')
+
     return i+1, ''.join(cs)
 
 

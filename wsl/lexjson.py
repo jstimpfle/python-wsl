@@ -21,7 +21,7 @@ def unlex_json_int(x):
     try:
         return int(x)
     except ValueError as e:
-        raise wsl.FormatError('Failed to convert "%s" to JSON integer' %(x,)) from e
+        raise wsl.UnlexError('Unlexing token to JSON integer', x, 'Not a valid integer')
 
 
 def make_make_jsonreader(schema):
