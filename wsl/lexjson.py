@@ -2,22 +2,26 @@ import wsl
 
 
 def lex_json_string(x):
-    assert isinstance(x, str)
+    if not isinstance(x, str):
+        raise wsl.LexError('JSON string token', str(x), 0, 0, 'Buffer to lex from is not a string but %s' %(type(x),))
     return x
 
 
 def unlex_json_string(x):
-    assert isinstance(x, str)
+    if not isinstance(x, str):
+        raise wsl.UnlexError('JSON string token', str(x), 'Token to unlex is not a string but %s' %(type(x),))
     return x
 
 
 def lex_json_int(x):
-    assert isinstance(x, int)
+    if not isinstance(x, int):
+        raise wsl.LexError('JSON int token', str(x), 0, 0, 'Not an int but %s' %(type(x),))
     return str(x)
 
 
 def unlex_json_int(x):
-    assert isinstance(x, str)
+    if not isinstance(x, str):
+        raise wsl.UnlexError('JSON int token', str(x), 'Token to unlex is not a string but %s' %(type(x),))
     try:
         return int(x)
     except ValueError as e:
@@ -36,7 +40,7 @@ def make_make_jsonreader(schema):
         if not hasattr(domobj.funcs, 'jsonlex'):
             return None
         decode = domobj.funcs.decode
-        jsonlex = domobj.funcs.jsonlex
+        jsonlex = lex_json_string if is_dict_key else domobj.funcs.jsonlex
         def jsonreader(value):
             return decode(jsonlex(value))
         return jsonreader
@@ -55,7 +59,7 @@ def make_make_jsonwriter(schema):
         if not hasattr(domobj.funcs, 'jsonunlex'):
             return None
         encode = domobj.funcs.encode
-        jsonunlex = domobj.funcs.jsonunlex
+        jsonunlex = unlex_json_string if is_dict_key else domobj.funcs.jsonunlex
         def jsonwriter(value):
             return jsonunlex(encode(value))
         return jsonwriter

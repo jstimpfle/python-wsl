@@ -5,20 +5,6 @@ def compute_line_and_column(text, i):
     return lineno, charno
 
 
-class UnlexError:
-    """UnlexError represents errors that occurred while unlexing tokens to WSL text format"""
-
-    def __init__(self, domainname, token, errormsg):
-
-        assert isinstance(domainname, str)
-        assert isinstance(token, str)
-        assert isinstance(errormsg, str)
-
-        self.domainname = domainname
-        self.token = token
-        self.errormsg = errormsg
-
-
 class WslValueError(ValueError):
     """Base class for all WSL exceptions"""
 
@@ -34,7 +20,11 @@ class ParseError(WslValueError):
         assert isinstance(errorpos, int)
         assert isinstance(errormsg, str)
 
-        super().__init__()
+        startline, startcolumn = compute_line_and_column(text, startpos)
+        errorline, errorcolumn = compute_line_and_column(text, errorpos)
+        message = 'While parsing %s (starting at line %d char %d): At line %d char %d: %s' %(context, startline, startcolumn, errorline, errorcolumn, errormsg)
+
+        super().__init__(message)
 
         self.context = context
         self.text = text
@@ -88,6 +78,22 @@ class FormatError(WslValueError):
 
         self.context = context
         self.value = value
+        self.errormsg = errormsg
+
+
+class UnlexError(WslValueError):
+    """UnlexError represents errors that occurred while unlexing tokens to WSL text format"""
+
+    def __init__(self, lexicaltype, token, errormsg):
+
+        assert isinstance(lexicaltype, str)
+        assert isinstance(token, str)
+        assert isinstance(errormsg, str)
+
+        super().__init__()
+
+        self.lexicaltype = lexicaltype
+        self.token = token
         self.errormsg = errormsg
 
 

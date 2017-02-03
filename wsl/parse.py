@@ -49,7 +49,7 @@ def parse_domain_decl(line, domain_parsers):
     """
     ws = line.split(None, 1)
     if len(ws) != 2:
-        raise ParseError('Failed to parse domain: expecting name and datatype declaration in line: %s' %(line,))
+        raise ParseError('Domain declaration', line, 0, 0, 'Expecting name and datatype declaration')
 
     domainname, spec = ws
     ws = spec.split(None, 1)
@@ -57,7 +57,7 @@ def parse_domain_decl(line, domain_parsers):
     param = ws[1] if len(ws) > 1 else ''
     parser = domain_parsers.get(parsername)
     if parser is None:
-        raise ParseError('Parser "%s" not available while parsing DOMAIN declaration' %(parsername,))
+        raise ParseError('Domain declaration', line, 0, 0, 'Parser "%s" not available' %(parsername,))
 
     funcs = parser(param)
     return SchemaDomain(domainname, spec, funcs)
@@ -75,7 +75,7 @@ def parse_table_decl(line):
     """
     ws = line.split()
     if not ws:
-        raise ParseError('Failed to parse table declaration: %s' %(line,))
+        raise ParseError('Table declaration', line, 0, 0, 'empty line')
     name, cols = ws[0], tuple(ws[1:])
     spec = line
 
@@ -101,11 +101,11 @@ def parse_key_decl(line):
     """
     ws = line.split(None, 1)
     if len(ws) != 2:
-        raise ParseError('Failed to parse schema key: Expected name and specification in line %s' %(line,))
+        raise ParseError('KEY declaration', line, 0, 0, 'Expected key name and specification')
 
     name, spec = ws[0], ws[1]
     if not _is_identifier(name):
-        raise ParseError('Bad KEY name: "%s": Must be an identifier, in line "%s"' %(name, line))
+        raise ParseError('KEY declaration', line, 0, 0, 'Invalid key name')
 
     ix = []
     ws = spec.split()
@@ -113,7 +113,7 @@ def parse_key_decl(line):
     vs = ws[1:]
     for i, v in enumerate(vs):
         if v != '*' and not _is_variable(v):
-            raise ParseError('Invalid variable name "%s" while parsing key declaration "%s"' %(v, line))
+            raise ParseError('KEY declaration', line, 0, 0, 'Invalid variable name "%s"' %(v,))
         elif v != '*':
             ix.append(i)
 
@@ -134,53 +134,50 @@ def parse_foreignkey_decl(line, tables):
     """
     ws = line.split(None, 1)
     if len(ws) < 2:
-        raise ParseError('Failed to parse REFERENCE declaration "%s": Need a name and a datatype' %(line,))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Need a name and a datatype')
 
     name, spec = ws
     if not _is_identifier(name):
-        raise ParseError('Bad REFERENCE name: "%s": Must be an identifier, in line "%s"' %(name, line))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Invalid REFERENCE name')
 
     parts = spec.split('=>')
     if len(parts) != 2:
-        raise ParseError('Could not parse "%s" as REFERENCE constraint' %(line,))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Expected <local key spec> => <foreign key spec>')
 
     lws = parts[0].split(None, 1)
     if len(lws) != 2:
-        raise ParseError('Could not parse left-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Error in left-hand side of "=>"')
     table1, vs1 = lws[0], lws[1].split()
     if table1 not in tables:
-        raise ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table1, line))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Local table "%s" is not defined' %(table1,))
     if len(vs1) != len(tables[table1].columns):
-        raise ParseError('Wrong number of columns on left-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Number of columns in left-hand side of "=>" (%d) does not match number of columns of table "%s" (%d)' %(len(vs1), tables[table1].name, len(tables[table1].columns)))
 
     rws = parts[1].split(None, 1)
     if len(rws) != 2:
-        raise ParseError('Could not parse right-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Error in right-hand side of "=>"')
     table2, vs2 = rws[0], rws[1].split()
     if table2 not in tables:
-        raise ParseError('Undefined table "%s" in REFERENCE constraint "%s"' %(table2, line))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Foreign table "%s" is not defined' %(table2,))
     if len(vs2) != len(tables[table2].columns):
-        raise ParseError('Wrong number of columns on right-hand side of REFERENCE constraint "%s"' %(line,))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Number of columns in right-hand side of "=>" (%d) does not match number of columns of table "%s" (%d)' %(len(vs2), tables[table2].name, len(tables[table2].columns)))
 
     d1, d2 = {}, {}
 
     # build maps (variable -> column index) for both sides
     for (table, vs, d) in [(table1, vs1, d1), (table2, vs2, d2)]:
-        if len(vs) != len(tables[table].columns):
-            raise ParseError('Arity mismatch for table "%s" while parsing KEY constraint "%s %s"' %(table, name, spec))
-
         for i, v in enumerate(vs):
             if v == '*':
                 continue
             if not _is_variable(v):
-                raise ParseError('Invalid variable "%s" while parsing REFERENCE constraint "%s %s"' %(v, name, spec))
+                raise ParseError('REFERENCE declaration', line, 0, 0, 'Invalid variable "%s"' %(v,))
 
             if v in d:
-                raise ParseError('Variable "%s" used twice on the same side while parsing REFERENCE constraint "%s %s"' %(v, name, name))
+                raise ParseError('REFERENCE declaration', line, 0, 0, 'Variable "%s" used twice on one side of "=>"' %(v, name, name))
             d[v] = i
 
     if sorted(d1.keys()) != sorted(d2.keys()):
-        raise ParseError('Different variables used on both sides of "=>" while parsing REFERENCE constraint "%s %s"' %(name, spec))
+        raise ParseError('REFERENCE declaration', line, 0, 0, 'Different variables used on both sides of "=>"')
 
     # use maps to pair columns
     ix1 = tuple(i for _, i in sorted(d1.items()))
@@ -215,6 +212,7 @@ def parse_schema(schemastr, domain_parsers=None):
     foreignkeyspecs = set()
     colnamespecs = set()
 
+    # TODO: don't split in lines but keep an index, for better error messages
     for line in schemastr.splitlines():
         line = line.strip()
         if not line:
@@ -222,7 +220,7 @@ def parse_schema(schemastr, domain_parsers=None):
 
         ws = line.split(None, 1)
         if len(ws) != 2:
-            raise ParseError('Failed to parse line: %s' %(line,))
+            ws.append('')
 
         kw, spec = ws
         if kw == 'DOMAIN':
@@ -239,25 +237,25 @@ def parse_schema(schemastr, domain_parsers=None):
     for spec in domainspecs:
         domain = parse_domain_decl(spec, domain_parsers)
         if domain.name in domains:
-            raise ParseError('Redeclaration of domain "%s" in line: %s' %(domain.name, line))
+            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of domain "%s"' %(domain.name,))
         domains[domain.name] = domain
 
     for spec in tablespecs:
         table = parse_table_decl(spec)
         if table.name in tables:
-            raise ParseError('Redeclaration of table "%s" in line: %s' %(table.name, line))
+            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of table "%s"' %(table.name,))
         tables[table.name] = table
 
     for spec in keyspecs:
         key = parse_key_decl(spec)
         if key.name in keys:
-            raise ParseError('Redeclaration of key "%s" in line: %s' %(key.name, line))
+            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of key "%s"' %(key.name,))
         keys[key.name] = key
 
     for spec in foreignkeyspecs:
         fkey = parse_foreignkey_decl(spec, tables)
         if fkey.name in foreignkeys:
-            raise ParseError('Redeclaration of foreign key "%s" in line: "%s"' %(fkey.name, line))
+            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of foreign key "%s"' %(fkey.name,))
         foreignkeys[fkey.name] = fkey
 
     return Schema(schemastr, domains, tables, keys, foreignkeys)
@@ -302,11 +300,12 @@ def parse_row(text, i, lexers_of_relation):
     Raises:
         wsl.ParseError: if the lex failed.
     """
+    start = i
     end = len(text)
     i, relation = lex_wsl_relation_name(text, i)
     lexers = lexers_of_relation.get(relation)
     if lexers is None:
-        raise ParseError('No such table: "%s"' %(relation,))
+        raise ParseError('Table name', text, start, i, 'No such table: "%s"' %(relation,))
     i, tokens = parse_tokens(text, i, lexers)
     return i, (relation, tokens)
 

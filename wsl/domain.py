@@ -84,8 +84,8 @@ def parse_Int_domain(line):
         encode = Int_encode
         wsllex = lex_wsl_identifier
         wslunlex = unlex_wsl_identifier
-        jsonlex = lex_json_string
-        jsonunlex = unlex_json_string
+        jsonlex = lex_json_int
+        jsonunlex = unlex_json_int
     return IntDomain
 
 

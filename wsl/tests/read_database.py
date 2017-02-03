@@ -4,6 +4,7 @@ schema_string = """
 DOMAIN ID ID
 DOMAIN String String
 TABLE Person ID String
+REFERENCE Person Person a b => Person a b
 """
 
 database_string = """
