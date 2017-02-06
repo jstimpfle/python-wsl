@@ -1,4 +1,7 @@
-import wsl
+import re
+
+from .schema import Schema
+from .exceptions import LexError
 
 
 def _hex2dec(c):
@@ -7,13 +10,13 @@ def _hex2dec(c):
         return x - 0x30
     if 0x61 <= x < 0x67:
         return x - 0x57
-    raise wsl.ParseError('Not a valid hexadecimal character: %c' %(c,))
+    raise ParseError('Not a valid hexadecimal character: %c' %(c,))
 
 
 def _hexdecode(chars):
     if len(chars) >= 2:
         return _hex2dec(chars[0])*16 + hex2dec(chars[1])
-    raise wsl.ParseError()
+    raise ValueError()
 
 
 def _chardesc(text, i):
@@ -27,10 +30,30 @@ def lex_wsl_relation_name(text, i):
     start = i
     end = len(text)
     if not 0x41 <= ord(text[i]) <= 0x5a and not 0x61 <= ord(text[i]) <= 0x7a:
-        raise wsl.LexError('Table name', text, start, i, 'Invalid character "%c" with no valid characters consumed' %(text[i],))
+        raise LexError('Table name', text, start, i, 'Invalid character "%c" with no valid characters consumed' %(text[i],))
     while i < end and (0x41 <= ord(text[i]) <= 0x5a or 0x61 <= ord(text[i]) <= 0x7a):
         i += 1
     return i, text[start:i]
+
+
+def lex_wsl_int(text, i):
+    start = i
+    end = len(text)
+
+    m = re.match(r'0|-?[1-9][0-9]*', text[i:])
+
+    if m is None:
+        raise LexError('WSL integer literal', text, start, i, 'Integer literals must match /0|-?[1-9][0-9]*/')
+
+    i += m.end()
+
+    return i, int(text[start:i])
+
+
+def unlex_wsl_int(token):
+    if not isinstance(token, int):
+        raise ValueError()
+    return str(token)
 
 
 def lex_wsl_identifier(text, i):
@@ -39,7 +62,7 @@ def lex_wsl_identifier(text, i):
     while i < end and ord(text[i]) > 0x20 and ord(text[i]) != 0x7f:
         i += 1
     if i == start:
-        raise wsl.LexError('Identifier literal', text, start, i, 'End of line or invalid character with no valid characters read')
+        raise LexError('Identifier literal', text, start, i, 'End of line or invalid character with no valid characters read')
     return i, text[start:i]
 
 
@@ -54,14 +77,14 @@ def lex_wsl_string_without_escapes(text, i):
     end = len(text)
 
     if not 0 <= i < end or ord(text[i]) != 0x5b:  # [
-        raise wsl.LexError('String literal', text, start, i, 'String must begin with "[", found: %s' %(_chardesc(text, i)))
+        raise LexError('String literal', text, start, i, 'String must begin with "[", found: %s' %(_chardesc(text, i)))
 
     i += 1
     while i < end and text[i] != ']':
         i += 1
 
     if i >= end:
-        raise wsl.LexError('String literal', text, start, i, 'String must end with "]", but encountered end of input')
+        raise LexError('String literal', text, start, i, 'String must end with "]", but encountered end of input')
 
     return i+1, text[start+1:i]
 
@@ -79,7 +102,7 @@ def lex_wsl_string_with_escapes(text, i):
     end = len(text)
 
     if not 0 <= i < end or ord(text[i]) != 0x5b:  # [
-        raise wsl.LexError('String literal', text, start, i, 'String must begin with "[", found: %s' %(_chardesc(text, i)))
+        raise LexError('String literal', text, start, i, 'String must begin with "[", found: %s' %(_chardesc(text, i)))
 
     i += 1
     cs = []
@@ -97,15 +120,15 @@ def lex_wsl_string_with_escapes(text, i):
                     cs.append(chr(_hexdecode(text[i+2:])))
                     i += 4
                 else:
-                    raise wsl.LexError('String literal', text, start, i, 'Unknown escape sequence: \\%c' %(c,))
+                    raise LexError('String literal', text, start, i, 'Unknown escape sequence: \\%c' %(c,))
         else:
             if d < 0x20 or d in [0x5b, 0x7f]:
-                raise wsl.LexError('String literal', text, start, i, 'invalid character %.2x in string literal' %(d,))
+                raise LexError('String literal', text, start, i, 'invalid character %.2x in string literal' %(d,))
             cs.append(c)
             i += 1
 
     if i == end:
-        raise wsl.LexError('String literal', text, start, i, 'String must end with "]", but encountered end of input')
+        raise LexError('String literal', text, start, i, 'String must end with "]", but encountered end of input')
 
     return i+1, ''.join(cs)
 
@@ -124,11 +147,11 @@ def lex_wsl_space(text, i):
         If the lex succeeds, *(i, None)* where *i* is the index of the next
         character following the space.
     Raises:
-        wsl.ParseError: If no space is found.
+        wsl.LexError: If no space is found.
     """
     end = len(text)
     if i == end or ord(text[i]) != 0x20:
-        raise wsl.ParseError('Expected space character')
+        raise LexError('Lexing WSL space', text, i, i, 'Expected space character')
     return i+1, None
 
 
@@ -142,16 +165,16 @@ def lex_wsl_newline(text, i):
         If the lex succeeds, *(i, None)* where *i* is the index of the next
         character following the newline.
     Raises:
-        wsl.ParseError: If no newline is found.
+        wsl.LexError: If no newline is found.
     """
     end = len(text)
     if i == end or ord(text[i]) != 0x0a:
-        raise wsl.ParseError('Expected newline (0x0a) character')
+        raise LexError('Lexing WSL end of line', text, i, i, 'Expected newline (0x0a) character')
     return i+1, None
 
 
 def make_make_wslreader(schema):
-    if not isinstance(schema, wsl.Schema):
+    if not isinstance(schema, Schema):
         raise ValueError()
     def make_wslreader(domain):
         domobj = schema.domains.get(domain)
@@ -171,7 +194,7 @@ def make_make_wslreader(schema):
 
 
 def make_make_wslwriter(schema):
-    if not isinstance(schema, wsl.Schema):
+    if not isinstance(schema, Schema):
         raise ValueError()
     def make_wslwriter(domain):
         domobj = schema.domains.get(domain)

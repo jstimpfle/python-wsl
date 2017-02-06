@@ -12,9 +12,11 @@ from .lexwsl import lex_wsl_identifier
 from .lexwsl import lex_wsl_relation_name
 from .lexwsl import lex_wsl_string_without_escapes
 from .lexwsl import lex_wsl_string_with_escapes
+from .lexwsl import lex_wsl_int
 from .lexwsl import unlex_wsl_identifier
 from .lexwsl import unlex_wsl_string_without_escapes
 from .lexwsl import unlex_wsl_string_with_escapes
+from .lexwsl import unlex_wsl_int
 from .lexjson import lex_json_int
 from .lexjson import lex_json_string
 from .lexjson import unlex_json_int
@@ -82,8 +84,8 @@ def parse_Int_domain(line):
     class IntDomain:
         decode = Int_decode
         encode = Int_encode
-        wsllex = lex_wsl_identifier
-        wslunlex = unlex_wsl_identifier
+        wsllex = lex_wsl_int
+        wslunlex = unlex_wsl_int
         jsonlex = lex_json_int
         jsonunlex = unlex_json_int
     return IntDomain
@@ -176,14 +178,13 @@ def String_encode(value):
 
 
 def Int_decode(token):
-    try:
-        return int(token)
-    except ValueError as e:
-        raise ParseError('Failed to parse integer') from e
+    assert isinstance(token, int)
+    return token
 
 
 def Int_encode(value):
-    return str(value)
+    assert isinstance(value, int)
+    return value
 
 
 def make_Enum_decode(values):

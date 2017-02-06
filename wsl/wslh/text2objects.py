@@ -1,6 +1,8 @@
 import re
 
-import wsl
+from ..exceptions import ParseError
+from ..schema import Schema
+from ..lexwsl import make_make_wslreader
 from .datatypes import Value, Struct, Option, Set, List, Dict
 
 
@@ -14,18 +16,11 @@ def _chardesc(text, i):
     return '"' + text[i] + '"'
 
 
-def make_parse_exc(msg, text, i):
-    lines = text[:i].split('\n')
-    lineno = len(lines)
-    charno = i + 1 - sum(len(l) + 1 for l in lines[:-1])
-    return ParseException(msg, lineno, charno)
-
-
 def parse_space(text, i):
     start = i
     end = len(text)
     if i >= end or text[i] != ' ':
-        raise wsl.LexError('Space character', text, i, i, 'Expected space character (0x20) but found 0x%.2x' %(ord(text[i]),))
+        raise LexError('Space character', text, i, i, 'Expected space character (0x20) but found 0x%.2x' %(ord(text[i]),))
     return i + 1
 
 
@@ -33,7 +28,7 @@ def parse_newline(text, i):
     start = i
     end = len(text)
     if i >= end or text[i] != '\n':
-        raise wsl.LexError('Newline character', text, i, i, 'Expected newline character (0x0a) but found 0x%.2x' %(ord(text[i]),))
+        raise LexError('Newline character', text, i, i, 'Expected newline character (0x0a) but found 0x%.2x' %(ord(text[i]),))
     return i + 1
 
 
@@ -43,7 +38,7 @@ def parse_keyword(text, i):
     while i < end and text[i].isalpha():
         i += 1
     if i == start:
-        raise wsl.LexError('Keyword', text, i, i, 'Found invalid character "%s with no valid consumed characters' %(_chardesc(text, i),))
+        raise LexError('Keyword', text, i, i, 'Found invalid character "%s with no valid consumed characters' %(_chardesc(text, i),))
     return i, text[start:i]
 
 
@@ -62,7 +57,7 @@ def parse_block(dct, indent, text, i):
         i, kw = parse_keyword(text, i)
         reader = dct.get(kw)
         if reader is None:
-            raise make_parse_exc('Found unexpected field "%s"' %(kw,), text, i)
+            raise ParseError('Found unexpected field "%s"' %(kw,), text, i)
         i, val = reader(text, i)
         out.append((kw, val))
     return i, out
@@ -100,9 +95,9 @@ def make_struct_reader(dct, indent):
         struct = {}
         for k, v in items:
             if k not in dct.keys():
-                raise make_parse_exc('Invalid key: %s' %(k,), text, i)
+                raise ParseError('Invalid key: %s' %(k,), text, i)
             if k in items:
-                raise make_parse_exc('Duplicate key: %s' %(k,), text, i)
+                raise ParseError('Duplicate key: %s' %(k,), text, i)
             struct[k] = v
         for k in dct.keys():
             struct.setdefault(k, None)
@@ -119,7 +114,7 @@ def make_option_reader(reader, indent):
         elif i < end and text[i] == '?':
             i, val = i+1, None
         else:
-            raise make_parse_exc('Expected option ("?", or "!" followed by value)', text, i)
+            raise ParseError('Expected option ("?", or "!" followed by value)', text, i)
         return i, val
     return option_reader
 
@@ -149,11 +144,12 @@ def make_list_reader(reader, indent):
 def make_dict_reader(key_reader, val_reader, indent):
     item_reader = make_keyvalue_reader(key_reader, val_reader)
     def dict_reader(text, i):
+        start = i
         i, items = parse_block({ 'val': item_reader }, indent, text, i)
         out = {}
         for _, (k, v) in items:
             if k in out:
-                raise make_parse_exc('Key "%s" used multiple times in this block' %(k,), text, i)
+                raise ParseError('Parse WSLH dict', text, start, i, 'Key "%s" used multiple times in this block' %(k,))
             out[k] = v
         return i, out
     return dict_reader
@@ -162,7 +158,7 @@ def make_dict_reader(key_reader, val_reader, indent):
 def run_reader(reader, text):
     i, r = reader(text, 0)
     if i != len(text):
-        raise make_parse_exc('Unconsumed text', text, i)
+        raise ParseError('Unconsumed text', text, i)
     return r
 
 
@@ -219,9 +215,9 @@ def make_lexer_from_spec(make_reader, spec, indent):
 
 
 def text2objects(schema, spec, text):
-    if not isinstance(schema, wsl.Schema):
+    if not isinstance(schema, Schema):
         raise TypeError()
     if not isinstance(text, str):
         raise TypeError()
-    reader = make_lexer_from_spec(wsl.make_make_wslreader(schema), spec, 0)
+    reader = make_lexer_from_spec(make_make_wslreader(schema), spec, 0)
     return run_reader(reader, text)

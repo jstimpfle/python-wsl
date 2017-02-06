@@ -26,9 +26,11 @@ from .lexwsl import lex_wsl_identifier
 from .lexwsl import lex_wsl_relation_name
 from .lexwsl import lex_wsl_string_without_escapes
 from .lexwsl import lex_wsl_string_with_escapes
+from .lexwsl import lex_wsl_int
 from .lexwsl import unlex_wsl_identifier
 from .lexwsl import unlex_wsl_string_without_escapes
 from .lexwsl import unlex_wsl_string_with_escapes
+from .lexwsl import unlex_wsl_int
 from .lexwsl import make_make_wslreader
 from .lexwsl import make_make_wslwriter
 from .domain import get_builtin_domain_parsers

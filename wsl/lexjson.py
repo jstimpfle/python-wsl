@@ -1,31 +1,74 @@
 import wsl
 
 
-def lex_json_string(x):
-    if not isinstance(x, str):
-        raise wsl.LexError('JSON string token', str(x), 0, 0, 'Buffer to lex from is not a string but %s' %(type(x),))
-    return x
+def _chardesc(text, i):
+    if i >= len(text):
+        return '(end of input)'
+
+    return '"' + text[i] + '"'
 
 
-def unlex_json_string(x):
-    if not isinstance(x, str):
-        raise wsl.UnlexError('JSON string token', str(x), 'Token to unlex is not a string but %s' %(type(x),))
-    return x
+def _whitespace(text, i):
+    end = len(text)
+    while i < end and ord(text[i]) in [0x09, 0x0a, 0x0d, 0x20]:
+        i += 1
+    return i
 
 
-def lex_json_int(x):
-    if not isinstance(x, int):
-        raise wsl.LexError('JSON int token', str(x), 0, 0, 'Not an int but %s' %(type(x),))
-    return str(x)
+def lex_json_string(text, i):
+    start = i
+    end = len(text)
+
+    if not (i < end and text[i] == '"'):
+        raise wsl.LexError('JSON string literal', text, start, i, 'String literals must begin with quotation mark, got: "%s"' %(_chardesc(text, i)))
+
+    i += 1
+    while (i < end and text[i] != '"'):
+        i += 1
+
+    if not (i < end and text[i] == '"'):
+        raise wsl.LexError('JSON string literal', text, start, i, 'String literals must end with quotation mark, got: "%s"' %(_chardesc(text, i)))
+
+    i += 1
+    return i, text[start+1:i-1]
 
 
-def unlex_json_int(x):
-    if not isinstance(x, str):
-        raise wsl.UnlexError('JSON int token', str(x), 'Token to unlex is not a string but %s' %(type(x),))
-    try:
-        return int(x)
-    except ValueError as e:
-        raise wsl.UnlexError('Unlexing token to JSON integer', x, 'Not a valid integer')
+def unlex_json_string(token):
+    return '"' + token + '"'  # XXX
+
+
+def lex_json_int(text, i):
+    start = i
+    end = len(text)
+
+    m = re.match(r'0|-?[1-9][0-9]*', text[i:])
+
+    if m is None:
+        raise wsl.LexError('JSON integer literal', text, start, i, 'Integer literals must match /0|-?[1-9][0-9]*/')
+
+    i += m.end()
+
+    return i, int(text[start:i])
+
+
+def unlex_json_int(token):
+    assert isinstance(token, int)
+    return str(token)
+
+
+def lex_json_null(text, i):
+    start = i
+
+    if text[i:].startswith('null'):
+        i += 4
+        return i, None
+    else:
+        raise wsl.LexError('JSON null literal', text, i, 'Expected "null"')
+
+
+def unlex_json_null(token):
+    assert token is None
+    return 'null'
 
 
 def make_make_jsonreader(schema):
