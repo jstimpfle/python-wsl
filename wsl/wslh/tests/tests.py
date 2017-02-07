@@ -15,7 +15,7 @@ TABLE bar Int Int
 REFERENCE foobar foo * * c => bar c *
 """)
 
-mytables = wsl.parse_db(schema=myschema, dbstr="""
+_, mytables = wsl.parse_db(schema=myschema, dbstr="""
 foo 1 2 3
 foo 4 5 6
 bar 3 666

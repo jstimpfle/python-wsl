@@ -354,8 +354,9 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
         domain_parsers (dict): Optional domain parsers for the domains used in
             the database. If not given, the built-in parsers are used.
     Returns:
-        A *dict* mapping each table name to a list of database rows (parsed
-            values)
+        A tuple *(schema, tables)*. *schema* is the parsed *wsl.Schema* and
+            *tables* is a *dict* mapping each table name to a list of database
+            rows (parsed values)
     Raises:
         wsl.ParseError: if the parse failed.
     """
@@ -412,9 +413,4 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
         for toks in tokens_of_relation[tablename]:
             rows.append(tuple(f(x) for f, x in zip(ps, toks)))
 
-    return tables
-
-
-if __name__ == '__main__':
-    from schema import SchemaTable
-    parse_db(dbfilepath='/tmp/test.wsl')
+    return schema, tables

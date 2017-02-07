@@ -190,9 +190,10 @@ def Int_encode(value):
 
 def make_Enum_decode(values):
     def Enum_decode(token):
-        for enumValue in EnumValues:
+        for enumValue in values:
             if enumValue.string == token:
                 return enumValue
+    return Enum_decode
 
 
 def make_Enum_encode(values):
@@ -200,6 +201,7 @@ def make_Enum_encode(values):
         if not isinstance(value, EnumValue):
             raise ValueError('Not a valid enum value: %s' %(value,))
         return value.string
+    return Enum_encode
 
 
 def IPv4_decode(token):

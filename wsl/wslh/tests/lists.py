@@ -22,7 +22,7 @@ Test: dict for (p) (parent p)
         _val_: value v
 """)
 
-mytables = wsl.parse_db(schemastr=myschema.spec, dbstr="""
+_, mytables = wsl.parse_db(schema=myschema, dbstr="""
 parent foo
 parent bar
 child foo 0 one
