@@ -178,13 +178,14 @@ def String_encode(value):
 
 
 def Int_decode(token):
-    assert isinstance(token, int)
-    return token
+    try:
+        return int(token)
+    except ValueError as e:
+        raise ParseError('Failed to parse integer') from e
 
 
 def Int_encode(value):
-    assert isinstance(value, int)
-    return value
+    return str(value)
 
 
 def make_Enum_decode(values):

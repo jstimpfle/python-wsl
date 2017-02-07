@@ -47,12 +47,12 @@ def lex_wsl_int(text, i):
 
     i += m.end()
 
-    return i, int(text[start:i])
+    return i, text[start:i]
 
 
 def unlex_wsl_int(token):
-    if not isinstance(token, int):
-        raise ValueError()
+    if not isinstance(token, str):
+        raise TypeError()
     return str(token)
 
 
@@ -68,7 +68,7 @@ def lex_wsl_identifier(text, i):
 
 def unlex_wsl_identifier(token):
     if not isinstance(token, str):
-        raise ValueError('Not a string token: %s (%s)' %(token, type(token)))
+        raise TypeError('Not a string token: %s (%s)' %(token, type(token)))
     return token
 
 
@@ -91,7 +91,7 @@ def lex_wsl_string_without_escapes(text, i):
 
 def unlex_wsl_string_without_escapes(token):
     if not isinstance(token, str):
-        raise ValueError()
+        raise TypeError()
     if '[' in token or ']' in token:
         raise ValueError('Cannot unlex string without escaping: %s' %(token,))
     return '[' + token + ']'
@@ -175,7 +175,7 @@ def lex_wsl_newline(text, i):
 
 def make_make_wslreader(schema):
     if not isinstance(schema, Schema):
-        raise ValueError()
+        raise TypeError()
     def make_wslreader(domain):
         domobj = schema.domains.get(domain)
         if domobj is None:
@@ -195,7 +195,7 @@ def make_make_wslreader(schema):
 
 def make_make_wslwriter(schema):
     if not isinstance(schema, Schema):
-        raise ValueError()
+        raise TypeError()
     def make_wslwriter(domain):
         domobj = schema.domains.get(domain)
         if domobj is None:
