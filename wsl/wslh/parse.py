@@ -212,9 +212,10 @@ def parse_lines(lines):
     return [parse_line(line) for line in iter_lines(lines) if line]
 
 
-def parse_tree(lookup_type, lines, primtypes=None, li=None, curindent=None):
-    if primtypes is None:
-        primtypes = {}
+def parse_tree(lookup_type, lines, parent_primtypes=None, li=None, curindent=None):
+    if parent_primtypes is None:
+        parent_primtypes = {}
+
     if li is None:
         li = 0
     if curindent is None:
@@ -229,13 +230,15 @@ def parse_tree(lookup_type, lines, primtypes=None, li=None, curindent=None):
         if indent > curindent:
             raise ParseError('Wrong amount of indentation (need %d) at %s' %(curindent, line.desc()))
 
+        primtypes = dict(parent_primtypes)
+
         def infer_types(query):
             for i, v in enumerate(query.variables):
                 typ = lookup_type(query.table, i)
                 if v in query.freshvariables:
                     primtypes[v] = typ
                 elif v not in primtypes:
-                    assert False
+                    raise ParseError('Variable "%s" not in scope at %s' %(v, line.desc()))
                 elif primtypes[v] != typ:
                     raise ParseError('Type mismatch: Usage of variable "%s" in this place of the query requires type "%s", but it was inferred to be of type "%s"' %(membervariable, typ, primtypes[v]))
 
