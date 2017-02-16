@@ -7,14 +7,20 @@ from .datatypes import Value, Struct, Option, Set, List, Dict
 INDENTSPACES = '    '
 
 
-def add_whitespace(spec, write):
-    if type(spec) == Value:
-        def spnl(writer, data):
-            writer.write(' ')
-            write(writer, data)
-            writer.write('\n')
-        return spnl
-    elif type(spec) == Option:
+def add_whitespace(spec, sub_spec, write):
+    if type(sub_spec) == Value:
+        if type(spec) in [Struct, Option, Dict]:
+            def spnl(writer, data):
+                writer.write(' ')
+                write(writer, data)
+                writer.write('\n')
+            return spnl
+        else:
+            def nl_after(writer, data):
+                write(writer, data)
+                writer.write('\n')
+            return nl_after
+    elif type(sub_spec) == Option:
         def sp(writer, data):
             writer.write(' ')
             write(writer, data)
@@ -39,10 +45,11 @@ def struct2text(look, spec, indent):
     items = []
     for key, sub_spec in sorted(spec.childs.items()):
         write_sub = any2text(look, sub_spec, indent + INDENTSPACES)
-        items.append((key, add_whitespace(sub_spec, write_sub)))
+        items.append((key, add_whitespace(spec, sub_spec, write_sub)))
     def write_struct(writer, data):
         for key, write_sub in items:
             writer.write(indent)
+            writer.write(':')
             writer.write(key)
             write_sub(writer, data[key])
     return write_struct
@@ -51,7 +58,7 @@ def struct2text(look, spec, indent):
 def option2text(look, spec, indent):
     sub_spec = spec.childs['_val_']
     write_sub = any2text(look, sub_spec, indent)
-    write_sub = add_whitespace(sub_spec, write_sub)
+    write_sub = add_whitespace(spec, sub_spec, write_sub)
     def write_option(writer, data):
         if data is None:
             writer.write('?\n')
@@ -64,11 +71,10 @@ def option2text(look, spec, indent):
 def set2text(look, spec, indent):
     sub_spec = spec.childs['_val_']
     write_sub = any2text(look, sub_spec, indent + INDENTSPACES)
-    write_sub = add_whitespace(sub_spec, write_sub)
+    write_sub = add_whitespace(spec, sub_spec, write_sub)
     def write_set(writer, data):
         for item in sorted(data):
             writer.write(indent)
-            writer.write('val')
             write_sub(writer, item)
     return write_set
 
@@ -76,11 +82,10 @@ def set2text(look, spec, indent):
 def list2text(look, spec, indent):
     sub_spec = spec.childs['_val_']
     write_sub = any2text(look, sub_spec, indent + INDENTSPACES)
-    write_sub = add_whitespace(sub_spec, write_sub)
+    write_sub = add_whitespace(spec, sub_spec, write_sub)
     def write_list(writer, data):
         for item in data:
             writer.write(indent)
-            writer.write('val')
             write_sub(writer, item)
     return write_list
 
@@ -91,11 +96,10 @@ def dict2text(look, spec, indent):
     assert type(key_spec) == Value
     write_key = any2text(look, key_spec, indent + INDENTSPACES)
     write_val = any2text(look, val_spec, indent + INDENTSPACES)
-    write_val = add_whitespace(val_spec, write_val)
+    write_val = add_whitespace(spec, val_spec, write_val)
     def write_dict(writer, data):
         for key, val in sorted(data.items()):
             writer.write(indent)
-            writer.write('val ')
             write_key(writer, key)
             write_val(writer, val)
     return write_dict

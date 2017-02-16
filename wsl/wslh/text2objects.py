@@ -1,6 +1,6 @@
 import re
 
-from ..exceptions import ParseError
+from ..exceptions import ParseError, LexError
 from ..schema import Schema
 from ..lexwsl import make_make_wslreader
 from .datatypes import Value, Struct, Option, Set, List, Dict
@@ -13,14 +13,19 @@ def _chardesc(text, i):
     if i >= len(text):
         return '(EOL)'
 
-    return '"' + text[i] + '"'
+    c = text[i]
+
+    if ord(c) < 32:
+        return '(0x%.2x)' %(ord(c),)
+    else:
+        return '"%s"' %(c,)
 
 
 def parse_space(text, i):
     start = i
     end = len(text)
     if i >= end or text[i] != ' ':
-        raise LexError('Space character', text, i, i, 'Expected space character (0x20) but found 0x%.2x' %(ord(text[i]),))
+        raise LexError('space character', text, i, i, 'Expected space character (0x20) but found %s' %(_chardesc(text, i),))
     return i + 1
 
 
@@ -28,8 +33,30 @@ def parse_newline(text, i):
     start = i
     end = len(text)
     if i >= end or text[i] != '\n':
-        raise LexError('Newline character', text, i, i, 'Expected newline character (0x0a) but found 0x%.2x' %(ord(text[i]),))
+        raise LexError('newline character', text, i, i, 'Expected newline character (0x0a) but found %s' %(_chardesc(text, i),))
     return i + 1
+
+
+def parse_colon(text, i):
+    start = i
+    end = len(text)
+    if i >= end or text[i] != ':':
+        raise LexError('colon character', text, i, i, 'Expected colon (":") character but found %s' %(_chardesc(text, i),))
+    return i + 1
+
+
+def parse_nothing(text, i):
+    return i
+
+
+def number_of_spaces(text, i):
+    start = i
+    end = len(text)
+    if i >= end:
+        return -1  # XXX
+    while i < end and text[i] == ' ':
+        i += 1
+    return i - start
 
 
 def parse_keyword(text, i):
@@ -38,35 +65,23 @@ def parse_keyword(text, i):
     while i < end and text[i].isalpha():
         i += 1
     if i == start:
-        raise LexError('Keyword', text, i, i, 'Found invalid character "%s with no valid consumed characters' %(_chardesc(text, i),))
+        raise LexError('Keyword', text, i, i, 'Found invalid character %s with no valid consumed characters' %(_chardesc(text, i),))
     return i, text[start:i]
 
 
-def parse_block(dct, indent, text, i):
-    start = i
-    end = len(text)
-    out = []
-    while True:
-        while i < end and text[i] == '\n':
-            i += 1
-        if i == end:
-            break
-        if not text[i:].startswith(' ' * indent):
-            break
-        i += indent
-        i, kw = parse_keyword(text, i)
-        reader = dct.get(kw)
-        if reader is None:
-            raise ParseError('Found unexpected field "%s"' %(kw,), text, i)
-        i, val = reader(text, i)
-        out.append((kw, val))
-    return i, out
+def followed_by_newline(valuereader):
+    def parser(text, i):
+        i, v = valuereader(text, i)
+        i = parse_newline(text, i)
+        return i, v
+    return parser
 
 
 def space_and_then(valuereader):
     def space_and_then_reader(text, i):
         i = parse_space(text, i)
         i, v = valuereader(text, i)
+        i = parse_newline(text, i)
         return i, v
     return space_and_then_reader
 
@@ -79,28 +94,47 @@ def newline_and_then(valuereader):
     return newline_and_then_reader
 
 
-def make_keyvalue_reader(keyreader, valuereader):
-    def keyvalue_reader(text, i):
-        i = parse_space(text, i)
-        i, k = keyreader(text, i)
-        i = parse_newline(text, i)
-        i, v = valuereader(text, i)
-        return i, (k, v)
-    return keyvalue_reader
-
-
 def make_struct_reader(dct, indent):
     def struct_reader(text, i):
-        i, items = parse_block(dct, indent, text, i)
+        start = i
+        end = len(text)
+
+        items = []
+
+        while True:
+            nsp = number_of_spaces(text, i)
+            if nsp < indent:
+                break
+            if nsp > indent:
+                raise ParseError('struct at indent level %d' %(indent,), text, start, i, 'unexpected indent of %d' %(nsp,))
+
+            i += nsp
+            i = parse_colon(text, i)
+
+            i, key = parse_keyword(text, i)
+            parsers = dct.get(key)
+            if parsers is None:
+                raise ParseError('struct', text, start, i, 'Invalid member "%s". Valid members are %s'% (key, list(dct)))
+            parse_ws, parse_val, parse_end = parsers
+
+            i = parse_ws(text, i)
+            i, val = parse_val(text, i)
+            i = parse_end(text, i)
+
+            items.append((key, val))
+
         struct = {}
+
         for k, v in items:
             if k not in dct.keys():
-                raise ParseError('Invalid key: %s' %(k,), text, i)
+                raise ParseError('struct', text, start, i, 'Invalid key: %s' %(k,))
             if k in items:
-                raise ParseError('Duplicate key: %s' %(k,), text, i)
+                raise ParseError('struct', text, start, i, 'Duplicate key: %s' %(k,))
             struct[k] = v
         for k in dct.keys():
-            struct.setdefault(k, None)
+            if k not in struct:
+                raise ParseError('struct', text, start, i, 'Missing key: %s' %(k,))
+
         return i, struct
     return struct_reader
 
@@ -113,45 +147,88 @@ def make_option_reader(reader, indent):
             i, val = reader(text, i)
         elif i < end and text[i] == '?':
             i, val = i+1, None
+            i = parse_newline(text, i)
         else:
             raise ParseError('Expected option ("?", or "!" followed by value)', text, i)
         return i, val
     return option_reader
 
 
-def make_set_reader(reader, indent):
+def make_set_reader(val_reader, end_reader, indent):
     def set_reader(text, i):
-        dct = { 'val': reader }
-        i, items = parse_block(dct, indent, text, i)
-        out = set()
-        for _, v in items:
-            out.add(v)
-        return i, out
+        start = i
+        end = len(text)
+
+        set_ = set()
+
+        while True:
+            nsp = number_of_spaces(text, i)
+            if nsp < indent:
+                break
+            if nsp > indent:
+                raise ParseError('set at indent level %d' %(indent,), text, start, i, 'unexpected indent of %d' %(nsp,))
+
+            i += nsp
+            i, val = val_reader(text, i)
+            i = end_reader(text, i)
+
+            set_.add(val)
+
+        return i, set_
+
     return set_reader
 
 
-def make_list_reader(reader, indent):
+def make_list_reader(val_reader, end_reader, indent):
     def list_reader(text, i):
-        dct = { 'val': reader }
-        i, items = parse_block(dct, indent, text, i)
-        out = []
-        for _, v in items:
-            out.append(v)
-        return i, out
+        start = i
+        end = len(text)
+
+        set_ = set()
+
+        while True:
+            nsp = number_of_spaces(text, i)
+            if nsp < indent:
+                break
+            if nsp > indent:
+                raise ParseError('list at indent level %d' %(indent,), text, start, i, 'unexpected indent of %d' %(nsp,))
+
+            i += nsp
+            i, val = val_reader(text, i)
+            i = end_reader(text, i)
+
+            set_.add(val)
+
+        return i, set_
+
     return list_reader
 
 
-def make_dict_reader(key_reader, val_reader, indent):
-    item_reader = make_keyvalue_reader(key_reader, val_reader)
+def make_dict_reader(key_reader, ws_reader, val_reader, end_reader, indent):
     def dict_reader(text, i):
         start = i
-        i, items = parse_block({ 'val': item_reader }, indent, text, i)
-        out = {}
-        for _, (k, v) in items:
-            if k in out:
-                raise ParseError('Parse WSLH dict', text, start, i, 'Key "%s" used multiple times in this block' %(k,))
-            out[k] = v
-        return i, out
+        end = len(text)
+
+        dct = {}
+
+        while True:
+            nsp = number_of_spaces(text, i)
+            if nsp < indent:
+                break
+            if nsp > indent:
+                raise ParseError('dict at indent level %d' %(indent,), text, start, i, 'unexpected indent of %d' %(nsp,))
+
+            i += nsp
+
+            i, key = key_reader(text, i)
+            i = ws_reader(text, i)
+            i, val = val_reader(text, i)
+            i = end_reader(text, i)
+
+            if dct.setdefault(key, val) is not val:
+                raise ParseError('dict', text, start, i, 'Duplicate key "%s"' %(key,))
+
+        return i, dct
     return dict_reader
 
 
@@ -162,7 +239,7 @@ def run_reader(reader, text):
     return r
 
 
-def make_lexer_from_spec(make_reader, spec, indent):
+def make_reader_from_spec(make_reader, spec, indent):
     nextindent = indent + INDENTSPACES
     typ = type(spec)
 
@@ -175,41 +252,53 @@ def make_lexer_from_spec(make_reader, spec, indent):
     elif typ == Struct:
         dct = {}
         for k, v in spec.childs.items():
-            subreader = make_lexer_from_spec(make_reader, v, nextindent)
-            if type(v) in [Value, Option]:
-                dct[k] = space_and_then(subreader)
+            val_reader = make_reader_from_spec(make_reader, v, nextindent)
+            if type(v) == Value:
+                ws_reader = parse_space
+                end_reader = parse_newline
+            elif type(v) == Option:
+                ws_reader = parse_space
+                end_reader = parse_nothing
             else:
-                dct[k] = newline_and_then(subreader)
+                ws_reader = parse_newline
+                end_reader = parse_nothing
+            dct[k] = (ws_reader, val_reader, end_reader)
         return make_struct_reader(dct, indent)
 
     elif typ == Option:
-        subreader = make_lexer_from_spec(make_reader, spec.childs['_val_'], indent)
+        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], indent)
         if type(spec.childs['_val_']) == Value:
-            p = space_and_then(subreader)
+            val_reader = space_and_then(val_reader)
         else:
-            p = newline_and_then(subreader)
-        return make_option_reader(subreader, indent)
+            val_reader = newline_and_then(val_reader)
+        return make_option_reader(val_reader, indent)
 
     elif typ == Set:
-        val_reader = make_lexer_from_spec(make_reader, spec.childs['_val_'], indent)
+        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], indent)
         if type(spec.childs['_val_']) == Value:
-            p = space_and_then(val_reader)
+            end_reader = parse_newline
         else:
-            p = newline_and_then(val_reader)
-        return make_set_reader(p, indent)
+            end_reader = parse_nothing
+        return make_set_reader(val_reader, end_reader, indent)
 
     elif typ == List:
-        val_reader = make_lexer_from_spec(make_reader, spec.childs['_val_'], nextindent)
+        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], indent)
         if type(spec.childs['_val_']) == Value:
-            p = space_and_then(val_reader)
+            end_reader = parse_newline
         else:
-            p = newline_and_then(val_reader)
-        return make_list_reader(p, indent)
+            end_reader = parse_nothing
+        return make_list_reader(val_reader, end_reader, indent)
 
     elif typ == Dict:
-        key_reader = make_lexer_from_spec(make_reader, spec.childs['_key_'], nextindent)
-        val_reader = make_lexer_from_spec(make_reader, spec.childs['_val_'], nextindent)
-        return make_dict_reader(key_reader, val_reader, indent)
+        key_reader = make_reader_from_spec(make_reader, spec.childs['_key_'], nextindent)
+        if type(spec.childs['_val_']) in [Value, Option]:
+            ws_reader = parse_space
+            end_reader = parse_newline
+        else:
+            ws_reader = parse_newline
+            end_reader = parse_nothing
+        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], nextindent)
+        return make_dict_reader(key_reader, ws_reader, val_reader, end_reader, indent)
 
     assert False  # missing case
 
@@ -219,5 +308,5 @@ def text2objects(schema, spec, text):
         raise TypeError()
     if not isinstance(text, str):
         raise TypeError()
-    reader = make_lexer_from_spec(make_make_wslreader(schema), spec, 0)
+    reader = make_reader_from_spec(make_make_wslreader(schema), spec, 0)
     return run_reader(reader, text)

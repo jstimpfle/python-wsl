@@ -46,7 +46,6 @@ def option2json(look, spec, indent):
             writer.write('null')
         else:
             write_sub(writer, data)
-        writer.writer('\n')
     return write_option
 
 
@@ -54,16 +53,17 @@ def set2json(look, spec, indent):
     sub_spec = spec.childs['_val_']
     write_sub = any2json(look, sub_spec, indent + INDENTSPACES)
     def write_set(writer, data):
-        writer.write('[')
-        i = 0
+        writer.write('[\n')
+        i = None
         for i, item in enumerate(sorted(data)):
             if i:
-                writer.write('\n')
+                writer.write(',\n')
+            writer.write(indent)
             writer.write(indent + INDENTSPACES)
             write_sub(writer, item)
-        if i:
+        if i is not None:
             writer.write('\n')
-            writer.write(indent)
+        writer.write(indent)
         writer.write(']')
     return write_set
 
@@ -72,16 +72,16 @@ def list2json(look, spec, indent):
     sub_spec = spec.childs['_val_']
     write_sub = any2json(look, sub_spec, indent + INDENTSPACES)
     def write_list(writer, data):
-        writer.write('[')
-        i = 0
+        writer.write('[\n')
+        i = None
         for i, item in enumerate(data):
             if i:
-                writer.write('\n')
+                writer.write(',\n')
             writer.write(indent + INDENTSPACES)
             write_sub(writer, item)
-        if i:
+        if i is not None:
             writer.write('\n')
-            writer.write(indent)
+        writer.write(indent)
         writer.write(']')
     return write_list
 

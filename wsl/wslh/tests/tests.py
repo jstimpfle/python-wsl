@@ -54,23 +54,23 @@ myjson = """
 """
 
 mytext = """\
-bars
-    val 3
-        c 3
-        d 666
-        s !
-            a 1
-            b 2
-    val 6
-        c 6
-        d 1024
-        s !
-            a 4
-            b 5
-    val 42
-        c 42
-        d 0
-        s ?
+:bars
+    3
+        :c 3
+        :d 666
+        :s !
+            :a 1
+            :b 2
+    6
+        :c 6
+        :d 1024
+        :s !
+            :a 4
+            :b 5
+    42
+        :c 42
+        :d 0
+        :s ?
 """
 
 
