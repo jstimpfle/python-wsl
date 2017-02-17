@@ -94,7 +94,28 @@ def newline_and_then(valuereader):
     return newline_and_then_reader
 
 
-def make_struct_reader(dct, indent):
+def value2objects(make_reader, spec, indent):
+    reader = make_reader(spec.primtype)
+    if reader is None:
+        raise ValueError('There is no reader for datatype "%s"' %(spec.primtype,))
+    return reader
+
+
+def struct2objects(make_reader, spec, indent):
+    dct = {}
+    for k, v in spec.childs.items():
+        val_reader = any2objects(make_reader, v, indent + INDENTSPACES)
+        if type(v) == Value:
+            ws_reader = parse_space
+            end_reader = parse_newline
+        elif type(v) == Option:
+            ws_reader = parse_space
+            end_reader = parse_nothing
+        else:
+            ws_reader = parse_newline
+            end_reader = parse_nothing
+        dct[k] = (ws_reader, val_reader, end_reader)
+
     def struct_reader(text, i):
         start = i
         end = len(text)
@@ -139,97 +160,139 @@ def make_struct_reader(dct, indent):
     return struct_reader
 
 
-def make_option_reader(reader, indent):
+def option2objects(make_reader, spec, indent):
+    val_reader = any2objects(make_reader, spec.childs['_val_'], indent)
+
+    if type(spec.childs['_val_']) == Value:
+        val_reader = space_and_then(val_reader)
+    else:
+        val_reader = newline_and_then(val_reader)
+
     def option_reader(text, i):
         end = len(text)
         if i < end and text[i] == '!':
             i += 1
-            i, val = reader(text, i)
+            i, val = val_reader(text, i)
         elif i < end and text[i] == '?':
             i, val = i+1, None
             i = parse_newline(text, i)
         else:
             raise ParseError('Expected option ("?", or "!" followed by value)', text, i)
         return i, val
+
     return option_reader
 
 
-def make_set_reader(val_reader, end_reader, indent):
+def set2objects(make_reader, spec, indent):
+    val_reader = any2objects(make_reader, spec.childs['_val_'], indent)
+
+    if type(spec.childs['_val_']) == Value:
+        end_reader = parse_newline
+    else:
+        end_reader = parse_nothing
+
     def set_reader(text, i):
         start = i
         end = len(text)
-
         set_ = set()
-
         while True:
             nsp = number_of_spaces(text, i)
             if nsp < indent:
                 break
             if nsp > indent:
                 raise ParseError('set at indent level %d' %(indent,), text, start, i, 'unexpected indent of %d' %(nsp,))
-
             i += nsp
             i, val = val_reader(text, i)
             i = end_reader(text, i)
-
             set_.add(val)
-
         return i, set_
 
     return set_reader
 
 
-def make_list_reader(val_reader, end_reader, indent):
+def list2objects(make_reader, spec, indent):
+    val_reader = any2objects(make_reader, spec.childs['_val_'], indent)
+
+    if type(spec.childs['_val_']) == Value:
+        end_reader = parse_newline
+    else:
+        end_reader = parse_nothing
+
     def list_reader(text, i):
         start = i
         end = len(text)
-
         set_ = set()
-
         while True:
             nsp = number_of_spaces(text, i)
             if nsp < indent:
                 break
             if nsp > indent:
                 raise ParseError('list at indent level %d' %(indent,), text, start, i, 'unexpected indent of %d' %(nsp,))
-
             i += nsp
             i, val = val_reader(text, i)
             i = end_reader(text, i)
-
             set_.add(val)
-
         return i, set_
 
     return list_reader
 
 
-def make_dict_reader(key_reader, ws_reader, val_reader, end_reader, indent):
+def dict2objects(make_reader, spec, indent):
+    key_reader = any2objects(make_reader, spec.childs['_key_'], indent + INDENTSPACES)
+    val_reader = any2objects(make_reader, spec.childs['_val_'], indent + INDENTSPACES)
+
+    if type(spec.childs['_val_']) in [Value, Option]:
+        ws_reader = parse_space
+        end_reader = parse_newline
+    else:
+        ws_reader = parse_newline
+        end_reader = parse_nothing
+
     def dict_reader(text, i):
         start = i
         end = len(text)
-
         dct = {}
-
         while True:
             nsp = number_of_spaces(text, i)
             if nsp < indent:
                 break
             if nsp > indent:
                 raise ParseError('dict at indent level %d' %(indent,), text, start, i, 'unexpected indent of %d' %(nsp,))
-
             i += nsp
-
             i, key = key_reader(text, i)
             i = ws_reader(text, i)
             i, val = val_reader(text, i)
             i = end_reader(text, i)
-
             if dct.setdefault(key, val) is not val:
                 raise ParseError('dict', text, start, i, 'Duplicate key "%s"' %(key,))
-
         return i, dct
+
     return dict_reader
+
+
+def any2objects(make_reader, spec, indent):
+    typ = type(spec)
+
+    if typ == Value:
+        return value2objects(make_reader, spec, indent)
+
+    elif typ == Struct:
+        return struct2objects(make_reader, spec, indent)
+
+    elif typ == Option:
+        return option2objects(make_reader, spec, indent)
+
+    elif typ == Set:
+        return set2objects(make_reader, spec, indent)
+
+    elif typ == List:
+        return list2objects(make_reader, spec, indent)
+
+    elif typ == Dict:
+        return dict2objects(make_reader, spec, indent)
+
+    else:
+        raise TypeError()  # or missing case?
 
 
 def run_reader(reader, text):
@@ -239,74 +302,12 @@ def run_reader(reader, text):
     return r
 
 
-def make_reader_from_spec(make_reader, spec, indent):
-    nextindent = indent + INDENTSPACES
-    typ = type(spec)
-
-    if typ == Value:
-        reader = make_reader(spec.primtype)
-        if reader is None:
-            raise ValueError('There is no reader for datatype "%s"' %(spec.primtype,))
-        return reader
-
-    elif typ == Struct:
-        dct = {}
-        for k, v in spec.childs.items():
-            val_reader = make_reader_from_spec(make_reader, v, nextindent)
-            if type(v) == Value:
-                ws_reader = parse_space
-                end_reader = parse_newline
-            elif type(v) == Option:
-                ws_reader = parse_space
-                end_reader = parse_nothing
-            else:
-                ws_reader = parse_newline
-                end_reader = parse_nothing
-            dct[k] = (ws_reader, val_reader, end_reader)
-        return make_struct_reader(dct, indent)
-
-    elif typ == Option:
-        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], indent)
-        if type(spec.childs['_val_']) == Value:
-            val_reader = space_and_then(val_reader)
-        else:
-            val_reader = newline_and_then(val_reader)
-        return make_option_reader(val_reader, indent)
-
-    elif typ == Set:
-        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], indent)
-        if type(spec.childs['_val_']) == Value:
-            end_reader = parse_newline
-        else:
-            end_reader = parse_nothing
-        return make_set_reader(val_reader, end_reader, indent)
-
-    elif typ == List:
-        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], indent)
-        if type(spec.childs['_val_']) == Value:
-            end_reader = parse_newline
-        else:
-            end_reader = parse_nothing
-        return make_list_reader(val_reader, end_reader, indent)
-
-    elif typ == Dict:
-        key_reader = make_reader_from_spec(make_reader, spec.childs['_key_'], nextindent)
-        if type(spec.childs['_val_']) in [Value, Option]:
-            ws_reader = parse_space
-            end_reader = parse_newline
-        else:
-            ws_reader = parse_newline
-            end_reader = parse_nothing
-        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], nextindent)
-        return make_dict_reader(key_reader, ws_reader, val_reader, end_reader, indent)
-
-    assert False  # missing case
-
-
 def text2objects(schema, spec, text):
     if not isinstance(schema, Schema):
         raise TypeError()
     if not isinstance(text, str):
         raise TypeError()
-    reader = make_reader_from_spec(make_make_wslreader(schema), spec, 0)
+
+    reader = any2objects(make_make_wslreader(schema), spec, 0)
+
     return run_reader(reader, text)

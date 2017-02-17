@@ -32,7 +32,17 @@ def make_parse_exc(msg, text, i):
     return ParseException(msg, lineno, charno)
 
 
-def make_struct_reader(dct):
+def value2objects(make_reader, spec, is_dict_key):
+    reader = make_reader(spec.primtype, is_dict_key)
+    if reader is None:
+        raise ValueError('There is no JSON reader for datatype "%s"' %(spec.primtype,))
+    return reader
+
+
+def struct2objects(make_reader, spec, is_dict_key):
+    dct = {}
+    for k, v in spec.childs.items():
+        dct[k] = any2objects(make_reader, v, False)
 
     def struct_reader(text, i):
         items = {}
@@ -42,7 +52,6 @@ def make_struct_reader(dct):
 
         while True:
             i = lex_json_whitespace(text, i)
-
             try:
                 i = lex_json_closebrace(text, i)
                 break
@@ -57,9 +66,9 @@ def make_struct_reader(dct):
             i, k = lex_json_string(text, i)
             reader = dct.get(k)
             if reader is None:
-                raise ParseError('Parsing JSON struct', text, kstart, i, 'Invalid member: "%s"' %(k,))
+                raise ParseError('JSON struct', text, kstart, i, 'Invalid member: "%s"' %(k,))
             if k in items:
-                raise ParseError('Parsing JSON struct', text, kstart, i, 'Duplicate member: "%s"' %(k,))
+                raise ParseError('JSON struct', text, kstart, i, 'Duplicate member: "%s"' %(k,))
 
             i = lex_json_whitespace(text, i)
             i = lex_json_colon(text, i)
@@ -70,70 +79,75 @@ def make_struct_reader(dct):
 
                 i, v = reader(text, i)
             except ParseError as e:
-                raise ParseError('Parsing JSON struct', text, vstart, i, 'Failed to parse "%s" member' %(k,)) from e
+                raise ParseError('JSON struct', text, vstart, i, 'Failed to parse "%s" member' %(k,)) from e
 
             items[k] = v
 
         needkeys = set(dct.keys())
         havekeys = set(items.keys())
         if needkeys != havekeys:
-            raise ParseError('Parsing JSON struct', text, start, i, 'Missing members: %s' %(', '.join(needkeys.difference(havekeys()))))
+            raise ParseError('JSON struct', text, start, i, 'Missing members: %s' %(', '.join(needkeys.difference(havekeys()))))
 
         return i, items
 
     return struct_reader
 
 
-def make_option_reader(reader):
+def option2objects(make_reader, spec, is_dict_key):
+    val_reader = any2objects(make_reader, spec.childs['_val_'], False)
+
     def option_reader(text, i):
         try:
             i = lex_json_null(text, i)
             return i, None
         except LexError:
             pass
-        return reader(text, i)
+        return val_reader(text, i)
+
     return option_reader
 
 
-def make_set_reader(reader):
-    list_reader = make_list_reader(reader)
+def set2objects(make_reader, spec, is_dict_key):
+    list_reader = list2objects(make_reader, spec, is_dict_key)
+
     def set_reader(text, i):
         i, lst = list_reader(text, i)
         return i, set(lst)
+
     return set_reader
 
 
-def make_list_reader(reader):
+def list2objects(make_reader, spec, is_dict_key):
+    val_reader = any2objects(make_reader, spec.childs['_val_'], False)
 
     def list_reader(text, i):
         items = []
-
         i = lex_json_whitespace(text, i)
         i = lex_json_openbracket(text, i)
         i = lex_json_whitespace(text, i)
-
         while True:
             i = lex_json_whitespace(text, i)
-
             try:
                 i = lex_json_closebracket(text, i)
                 break
             except:
                 pass
-
             if items:
                 i = lex_json_comma(text, i)
                 i = lex_json_whitespace(text, i)
-
-            i, v = reader(text, i)
+            i, v = val_reader(text, i)
             items.append(v)
-
         return i, items
 
     return list_reader
 
 
-def make_dict_reader(key_reader, val_reader):
+def dict2objects(make_reader, spec, is_dict_key):
+    if type(spec.childs['_key_']) != Value:
+        raise TypeError('JSON does not support composite dictionary keys')
+
+    key_reader = any2objects(make_reader, spec.childs['_key_'], True)
+    val_reader = any2objects(make_reader, spec.childs['_val_'], False)
 
     def dict_reader(text, i):
         items = {}
@@ -143,7 +157,6 @@ def make_dict_reader(key_reader, val_reader):
 
         while True:
             i = lex_json_whitespace(text, i)
-
             try:
                 i = lex_json_closebrace(text, i)
                 break
@@ -175,42 +188,29 @@ def make_dict_reader(key_reader, val_reader):
     return dict_reader
 
 
-def make_reader_from_spec(make_reader, spec, is_dict_key):
+def any2objects(make_reader, spec, is_dict_key):
     typ = type(spec)
 
     if typ == Value:
-        reader = make_reader(spec.primtype, is_dict_key)
-        if reader is None:
-            raise ValueError('There is no JSON reader for datatype "%s"' %(spec.primtype,))
-        return reader
+        return value2objects(make_reader, spec, is_dict_key)
 
     elif typ == Struct:
-        dct = {}
-        for k, v in spec.childs.items():
-            dct[k] = make_reader_from_spec(make_reader, v, False)
-        return make_struct_reader(dct)
+        return struct2objects(make_reader, spec, is_dict_key)
 
     elif typ == Option:
-        subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
-        return make_option_reader(subreader)
+        return option2objects(make_reader, spec, is_dict_key)
 
     elif typ == Set:
-        subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
-        return make_set_reader(subreader)
+        return set2objects(make_reader, spec, is_dict_key)
 
     elif typ == List:
-        subreader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
-        return make_list_reader(subreader)
+        return list2objects(make_reader, spec, is_dict_key)
 
     elif typ == Dict:
-        if type(spec.childs['_key_']) != Value:
-            raise ValueError('JSON does not support composite dictionary keys')
+        return dict2objects(make_reader, spec, is_dict_key)
 
-        key_reader = make_reader_from_spec(make_reader, spec.childs['_key_'], True)
-        val_reader = make_reader_from_spec(make_reader, spec.childs['_val_'], False)
-        return make_dict_reader(key_reader, val_reader)
-
-    assert False  # missing case
+    else:
+        raise TypeError()  # or missing case?
 
 
 def json2objects(schema, spec, text):
@@ -219,7 +219,7 @@ def json2objects(schema, spec, text):
     if not isinstance(text, str):
         raise TypeError()
 
-    reader = make_reader_from_spec(make_make_jsonreader(schema), spec, False)
+    reader = any2objects(make_make_jsonreader(schema), spec, False)
 
     i, objects = reader(text, 0)
     return objects

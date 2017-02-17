@@ -107,20 +107,27 @@ def dict2text(look, spec, indent):
 
 def any2text(look, spec, indent):
     typ = type(spec)
+
     if typ == Value:
         return value2text(look, spec, indent)
+
     elif typ == Struct:
         return struct2text(look, spec, indent)
+
     elif typ == Option:
         return option2text(look, spec, indent)
+
     elif typ == Set:
         return set2text(look, spec, indent)
+
     elif typ == List:
         return list2text(look, spec, indent)
+
     elif typ == Dict:
         return dict2text(look, spec, indent)
+
     else:
-        assert False
+        raise TypeError()  # or missing case?
 
 
 def objects2text(schema, spec, data):

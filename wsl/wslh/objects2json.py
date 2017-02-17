@@ -90,7 +90,7 @@ def dict2json(look, spec, indent):
     key_spec = spec.childs['_key_']
     val_spec = spec.childs['_val_']
     assert type(key_spec) == Value
-    write_key = any2json(look, key_spec, indent + INDENTSPACES)
+    write_key = any2json(look, key_spec, indent + INDENTSPACES, is_dict_child=True)
     write_val = any2json(look, val_spec, indent + INDENTSPACES)
     def write_dict(writer, data):
         writer.write('{')
@@ -110,20 +110,27 @@ def dict2json(look, spec, indent):
 
 def any2json(look, spec, indent, is_dict_child=False):
     typ = type(spec)
+
     if typ == Value:
         return value2json(look, spec, indent, is_dict_child)
+
     elif typ == Struct:
         return struct2json(look, spec, indent)
+
     elif typ == Option:
         return option2json(look, spec, indent)
+
     elif typ == Set:
         return set2json(look, spec, indent)
+
     elif typ == List:
         return list2json(look, spec, indent)
+
     elif typ == Dict:
         return dict2json(look, spec, indent)
+
     else:
-        assert False
+        raise ParseError()  # or missing case?
 
 
 def objects2json(schema, spec, data):

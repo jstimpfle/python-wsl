@@ -30,7 +30,7 @@ def find_child_rows(cols, rows, objs, query, database):
     return newcols, newrows, newobjs, index.values()
 
 
-def fromdb_value(cols, rows, objs, spec, database):
+def value2objects(cols, rows, objs, spec, database):
     if spec.query is not None:
         newcols, newrows, newobjs, _ = find_child_rows(cols, rows, objs, spec.query, database)
     else:
@@ -40,7 +40,7 @@ def fromdb_value(cols, rows, objs, spec, database):
     return [(newobj, newrow[idx]) for newobj, newrow in zip(newobjs, newrows)]
 
 
-def fromdb_struct(cols, rows, objs, spec, database):
+def struct2objects(cols, rows, objs, spec, database):
     structs = [{} for _ in objs]
     ids = range(len(objs))
 
@@ -48,32 +48,32 @@ def fromdb_struct(cols, rows, objs, spec, database):
         structs[i] = {}
 
     for key in spec.childs:
-        pairs = fromdb(cols, rows, ids, spec.childs[key], database)
+        pairs = any2objects(cols, rows, ids, spec.childs[key], database)
         for i, val in pairs:
             structs[i][key] = val
 
     return list(zip(objs, structs))
 
 
-def fromdb_option(cols, rows, objs, spec, database):
+def option2objects(cols, rows, objs, spec, database):
     values = [None] * len(objs)
     ids = range(len(objs))
 
     newcols, newrows, newids, _ = find_child_rows(cols, rows, ids, spec.query, database)
 
-    pairs = fromdb(newcols, newrows, newids, spec.childs['_val_'], database)
+    pairs = any2objects(newcols, newrows, newids, spec.childs['_val_'], database)
     for i, val in pairs:
         values[i] = val
 
     return list(zip(objs, values))
 
 
-def fromdb_set(cols, rows, objs, spec, database):
+def set2objects(cols, rows, objs, spec, database):
     sets = [set() for _ in objs]
 
     newcols, newrows, newobjs, _ = find_child_rows(cols, rows, sets, spec.query, database)
 
-    pairs = fromdb(newcols, newrows, newobjs, spec.childs['_val_'], database)
+    pairs = any2objects(newcols, newrows, newobjs, spec.childs['_val_'], database)
 
     for set_, value in pairs:
         set_.add(value)
@@ -81,13 +81,13 @@ def fromdb_set(cols, rows, objs, spec, database):
     return list(zip(objs, sets))
 
 
-def fromdb_list(cols, rows, objs, spec, database):
+def list2objects(cols, rows, objs, spec, database):
     lsts = [[] for _ in objs]
 
     newcols, newrows, newobjs, _ = find_child_rows(cols, rows, lsts, spec.query, database)
 
-    idxpairs = fromdb(newcols, newrows, newobjs, spec.childs['_idx_'], database)
-    valpairs = fromdb(newcols, newrows, newobjs, spec.childs['_val_'], database)
+    idxpairs = any2objects(newcols, newrows, newobjs, spec.childs['_idx_'], database)
+    valpairs = any2objects(newcols, newrows, newobjs, spec.childs['_val_'], database)
     assert len(idxpairs) == len(valpairs)
     for (lst1, idx), (lst2, val) in zip(idxpairs, valpairs):
         assert lst1 is lst2
@@ -96,13 +96,13 @@ def fromdb_list(cols, rows, objs, spec, database):
     return [(obj, [val for idx, val in sorted(lst)]) for (obj, lst) in zip(objs, lsts)]
 
 
-def fromdb_dict(cols, rows, objs, spec, database):
+def dict2objects(cols, rows, objs, spec, database):
     dcts = [{} for _ in objs]
 
     newcols, newrows, newobjs, _ = find_child_rows(cols, rows, dcts, spec.query, database)
 
-    keypairs = fromdb(newcols, newrows, newobjs, spec.childs['_key_'], database)
-    valpairs = fromdb(newcols, newrows, newobjs, spec.childs['_val_'], database)
+    keypairs = any2objects(newcols, newrows, newobjs, spec.childs['_key_'], database)
+    valpairs = any2objects(newcols, newrows, newobjs, spec.childs['_val_'], database)
     assert len(keypairs) == len(valpairs)
     for (dct1, key), (dct2, val) in zip(keypairs, valpairs):
         assert dct1 is dct2
@@ -111,23 +111,31 @@ def fromdb_dict(cols, rows, objs, spec, database):
     return list(zip(objs, dcts))
 
 
-def fromdb(cols, rows, objs, spec, database):
+def any2objects(cols, rows, objs, spec, database):
     assert len(rows) == len(objs)
+
     typ = type(spec)
+
     if typ == Value:
-        return fromdb_value(cols, rows, objs, spec, database)
+        return value2objects(cols, rows, objs, spec, database)
+
     elif typ == Struct:
-        return fromdb_struct(cols, rows, objs, spec, database)
+        return struct2objects(cols, rows, objs, spec, database)
+
     elif typ == Option:
-        return fromdb_option(cols, rows, objs, spec, database)
+        return option2objects(cols, rows, objs, spec, database)
+
     elif typ == Set:
-        return fromdb_set(cols, rows, objs, spec, database)
+        return set2objects(cols, rows, objs, spec, database)
+
     elif typ == List:
-        return fromdb_list(cols, rows, objs, spec, database)
+        return list2objects(cols, rows, objs, spec, database)
+
     elif typ == Dict:
-        return fromdb_dict(cols, rows, objs, spec, database)
+        return dict2objects(cols, rows, objs, spec, database)
+
     else:
-        assert False
+        raise TypeError()  # or missing case?
 
 
 def rows2objects(schema, spec, database):
@@ -136,7 +144,7 @@ def rows2objects(schema, spec, database):
     if not isinstance(database, dict):
         raise TypeError()
 
-    [(topobj, subobj)] = fromdb((), [()], [None], spec, database)
+    [(topobj, subobj)] = any2objects((), [()], [None], spec, database)
     assert topobj is None
 
     return subobj
