@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='wsl',
-    version='0.8',
+    version='0.9',
     description='Library for reading and writing WSL databases',
     long_description='Library for reading and writing WSL databases',
     url='http://jstimpfle.de/projects/wsl/main.html',
@@ -22,7 +22,7 @@ setuptools.setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
     ],
-    keywords='database development administration plain-text',
+    keywords='plain-text relational database schema hierarchical',
     packages=['wsl'],
     install_requires=[],
     extras_require={
