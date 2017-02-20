@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='wsl',
-    version='0.11',
+    version='0.12',
     description='Library for reading and writing WSL databases',
     long_description='Library for reading and writing WSL databases',
     url='http://jstimpfle.de/projects/wsl/main.html',
