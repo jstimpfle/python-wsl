@@ -113,23 +113,21 @@ class EnumValue:
     def __hash__(self):
         return self.integer
 
-    def __eq__(self, other):
-        return self.integer == other.integer
+    def _compare(comp):
+        def compare(self, other):
+            if not isinstance(other, EnumValue):
+                raise TypeError('Cannot compare Enum to %s value' %(type(other),))
+            if self.base is not other.base:
+                raise TypeError('Cannot compare EnumValues %s and %s: not of the same enumeration base type (%s and %s)' %(self, other, self.base, other.base))
+            return comp(self.integer, other.integer)
+        return compare
 
-    def __ne__(self, other):
-        return self.integer != other.integer
-
-    def __le__(self, other):
-        return self.integer <= other.integer
-
-    def __ge__(self, other):
-        return self.integer >= other.integer
-
-    def __lt__(self, other):
-        return self.integer < other.integer
-
-    def __gt__(self, other):
-        return self.integer > other.integer
+    __eq__ = _compare(lambda i, j: i == j)
+    __ne__ = _compare(lambda i, j: i != j)
+    __le__ = _compare(lambda i, j: i <= j)
+    __ge__ = _compare(lambda i, j: i >= j)
+    __lt__ = _compare(lambda i, j: i < j)
+    __gt__ = _compare(lambda i, j: i > j)
 
 
 def parse_Enum_domain(line):
