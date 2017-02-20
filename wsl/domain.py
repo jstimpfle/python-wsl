@@ -4,6 +4,8 @@ Users can add their own domains by providing a parser following the example of
 the built-in ones.
 """
 
+from .exceptions import LexError
+from .exceptions import UnlexError
 from .exceptions import ParseError
 from .exceptions import FormatError
 from .lexwsl import lex_wsl_space
@@ -202,18 +204,25 @@ def make_Enum_encode(values):
     return Enum_encode
 
 
+class IPv4Domain(tuple):
+    def __new__(cls, ip):
+        if not isinstance(ip, tuple) or len(ip) != 4 or any((not isinstance(x, int) or not 0 <= x < 256)  for x in ip):
+            raise ValueError('IPv4 must be 4-tuple of 8-bit integers (0-255), got: %s' %(ip,))
+        return super().__new__(cls, ip)
+
+    def __str__(self):
+        return '%s.%s.%s.%s' % self
+
+
 def IPv4_decode(token):
     ws = token.split('.')
     if len(ws) == 4:
         try:
             ip = tuple(map(int, ws))
-            for b in ip:
-                if b < 0 or b >= 256:
-                    raise ValueError()
-            return i, ip
-        except ValueError:
-            pass
-    raise ParseError('IPv4 address must be 4-tuple of 1 byte integers (0-255)')
+            return IPv4Domain(ip)
+        except ValueError as e:
+            # XXX: ParseError is not right here
+            raise ParseError('IPv4 address', '', 0, 0, 'Failed to decode "%s" as IPv4 address' %(token,)) from e
 
 
 def IPv4_encode(ip):
