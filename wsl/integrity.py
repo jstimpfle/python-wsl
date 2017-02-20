@@ -41,6 +41,8 @@ def check_database_integrity(schema, tables):
                 fkeys_of[schemafkey.table].append((schemafkey, local, candidate_idx))
                 found = True
 
+        # XXX: This check should be more "static", i.e. at Schema construction
+        # time
         if not found:
             raise ValueError('Foreign key "%s" references table "%s", but there is no matching unique key' %(schemafkey.name, schemafkey.reftable))
 
