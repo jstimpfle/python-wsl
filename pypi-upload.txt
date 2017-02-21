@@ -5,7 +5,7 @@ What to do to release a new version to pypi:
 Change to project directory
 Update version in setup.py
 
-Better also update version in doc/conf.py
+Better also update version in docs/conf.py
 
 # bdist sdist doesn't seem to work anymore with "twine upload"
 #$ python3 setup.py bdist sdist

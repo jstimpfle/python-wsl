@@ -16,7 +16,7 @@ http://jstimpfle.de/projects/python-wsl/doc/
 
 To generate the documentation from the source code
 
-$ make -C doc/ html
+$ make -C docs/ html
 
 This needs the python3-sphinx package (under Debian) and the Sphinx autodoc
 extension, and the relatively new `napoleon` extension (which is in Debian
