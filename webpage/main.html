@@ -11,8 +11,62 @@ pre, tt { background: #F0F0F0; padding: 0.2em; }
 
 <h1>python-wsl</h1>
 
-<p>python-wsl is a python3 library for interfacing with <a
+<p>python-wsl is a python3 library for working with <a
 href="http://jstimpfle.de/projects/wsl/main.html">WSL</a> databases.</p>
+
+<h2>Showcase</h2>
+
+<p>Let's parse <a href="http://jstimpfle.de/projects/wsl/world_x.wsl.txt">this
+example database</a> and run a hierarchical query to make a nice tree.</p>
+
+<pre>
+import wsl
+import wsl.wslh as wslh
+
+schema, tables = wsl.parse_db(dbfilepath="world_x.wsl.txt")
+
+specstring = """
+Countries: dict for (ctry short desc) (Country ctry short desc)
+    _key_: value ctry
+    _val_: dict for (cityid cityname district pop) (City cityid cityname ctry district pop)
+        _key_: value cityid
+        _val_: struct
+            name: value cityname
+            district: value district
+            population: value pop
+"""
+
+spec = wslh.parse_spec(schema, specstring)
+
+objects = wslh.rows2objects(schema, spec, tables)
+jsontext = wslh.objects2json(schema, spec, objects)
+
+print(jsontext)
+</pre>
+
+<p>Result:</p>
+
+<pre>
+{
+  "Countries": {
+    "AFG": {
+      "1": {      
+        "district": "Kabol",
+        "name": "Kabul",
+        "population": 1780000
+      },
+      "2": {      
+        "district": "Qandahar",
+        "name": "Qandahar",
+        "population": 237500
+      },
+...
+</pre>
+
+<p>In this case the hierarchical query is not isomorphic. Isomorphic queries
+work both ways: You can modify the answer tree and convert it back to a WSL
+database, using just two more lines of code. (There are still some rough edges
+and it's not yet possible to update subsets of the database).</p>
 
 <h2>Download / Installation</h2>
 
@@ -24,8 +78,10 @@ href="http://jstimpfle.de/projects/wsl/main.html">WSL</a> databases.</p>
 
 <h3>Debian Package</h3>
 
-<p>There is also a Debian package which might or might not work on your Debian
-or Debian-derived distribution. As <tt>root</tt>, create a file <tt>/etc/apt/sources.list.d/python-wsl.list</tt> with the following contents:</p>
+<p>There is also a Debian package which might work on your Debian or
+Debian-derived distribution. As <tt>root</tt>, create a file
+<tt>/etc/apt/sources.list.d/python-wsl.list</tt> with the following
+contents:</p>
 
 <pre>
 deb [arch=amd64] http://jstimpfle.de/projects/python-wsl/debian wsl-jessie main
@@ -42,9 +98,7 @@ install python3-wsl</tt> (notice: python<b>3</b>-wsl).</p>
 
 <h3>Development</h3>
 
-If you need the newest development version or want to make changes, you can also
-clone the <a href="https://github.com/jstimpfle/python-wsl">git repo on
-github</a>.</p>
+<p><a href="https://github.com/jstimpfle/python-wsl">Github repo</a></p>
 
 <h2>Documentation</h2>
 
