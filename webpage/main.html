@@ -48,8 +48,13 @@ github</a>.</p>
 
 <h2>Documentation</h2>
 
-<p><a href="doc/">Online documentation</a>. The documentation can also be built
-from the project sources.</p>
+<p><a href="doc/">Online documentation</a>.</p>
+
+<p>The documentation can also be built from the project sources. To build you
+need the <tt>python3-sphinx</tt> package (under Debian) and the Sphinx autodoc
+extension, as well as the relatively new `napoleon` extension (which is included
+in <tt>python3-sphinx</tt> since Debian stretch). If the dependencies are
+satisfied, you can type <tt>make -C docs/ html</tt> from the project root.</p>
 
 </body>
 </html>
