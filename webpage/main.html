@@ -1,7 +1,10 @@
 <!doctype html>
 <html>
 <head>
-<style>h2 { background: #E0E0F0; }</style>
+<style>
+h2 { background: #E0E0F0; }
+pre, tt { background: #F0F0F0; padding: 0.2em; }
+</style>
 <title>python-wsl</title>
 </head>
 <body>
@@ -11,12 +14,37 @@
 <p>python-wsl is a python3 library for interfacing with <a
 href="http://jstimpfle.de/projects/wsl/main.html">WSL</a> databases.</p>
 
-<h2>Download</h2>
+<h2>Download / Installation</h2>
 
-<p>The easiest way to get python-wsl is to install it with pip3: If you have it,
-just say <tt>pip3 install --user wsl</tt>.  If you need the newest development
-version or want to make changes, you can also clone the <a
-href="https://github.com/jstimpfle/python-wsl">git repo on github</a>.</p>
+<h3>pip3</h3>
+
+<p>The easiest way to get python-wsl is to install it with pip3: just say
+<tt>pip3 install --user wsl</tt>. To upgrade to newer available versions, do
+<tt>pip3 install --user --upgrade wsl</tt>.
+
+<h3>Debian Package</h3>
+
+<p>There is also a Debian package which might or might not work on your Debian
+or Debian-derived distribution. As <tt>root</tt>, create a file <tt>/etc/apt/sources.list.d/python-wsl.list</tt> with the following contents:</p>
+
+<pre>
+deb [arch=amd64] http://jstimpfle.de/projects/python-wsl/debian wsl-jessie main
+deb-src http://jstimpfle.de/projects/python-wsl/debian wsl-jessie main
+</pre>
+
+<p>For secure APT you can also add the maintainer's <a
+href="http://jstimpfle.de/gpgkey.html">GPG Key</a>, for example by doing
+<tt>wget http://jstimpfle.de/3702F438.asc -O - | apt-key add -</tt>. But make
+sure you understand the implications of adding that key!</p>
+
+<p>You should now by able to do <tt>apt-get update</tt> followed by <tt>apt-get
+install python3-wsl</tt> (notice: python<b>3</b>-wsl).</p>
+
+<h3>Development</h3>
+
+If you need the newest development version or want to make changes, you can also
+clone the <a href="https://github.com/jstimpfle/python-wsl">git repo on
+github</a>.</p>
 
 <h2>Documentation</h2>
 
