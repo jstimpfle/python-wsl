@@ -40,8 +40,8 @@ def parse_domain_decl(line, domain_parsers):
     """Parse a domain declaration line.
 
     Args:
-        line (str): contains specification of the domain to parse.
-        domain_parsers (dict): dict mapping domain parser names to domain parsers.
+        line (str): Specification of the domain to parse.
+        domain_parsers (dict): Maps domain parser names to domain parsers.
     Returns:
         wsl.SchemaDomain: The parsed domain object.
     Raises:
@@ -73,18 +73,12 @@ def parse_table_decl(line):
     Raises:
         wsl.ParseError: If the parse failed.
     """
+    spec = line
     ws = line.split()
     if not ws:
         raise ParseError('Table declaration', line, 0, 0, 'empty line')
     name, cols = ws[0], tuple(ws[1:])
-    spec = line
-
     return SchemaTable(name, spec, cols, colnames=[])
-
-
-def parse_logic_tuple(line):
-    ws = line.split()
-    return name, tuple(cols)
 
 
 def parse_key_decl(line):
@@ -287,8 +281,8 @@ def parse_tokens(text, i, lexers):
 def parse_row(text, i, lexers_of_relation):
     """Parse a database row (a relation name and according tuple of tokens).
 
-    This def lexes a relation name, which is used to lookup a domain object
-    in *objects_of_relation*. Then that object is used to call *parse_tokens()*.
+    This lexes a relation name, which is used to lookup lexers from
+    *lexers_of_relation*. Then *parse_tokens()* is called with these lexers.
 
     Args:
         text (str): holds a database tuple.
