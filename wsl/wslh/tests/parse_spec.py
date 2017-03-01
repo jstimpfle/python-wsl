@@ -42,12 +42,12 @@ Course: dict for (cid name) (Course cid name)
             _idx_: value idx
             _val_: value pid
 
-Tutor: set for (pid cid) (Tutor pid cid)
+Tutor: set for (cid idx pid) (Tutor cid idx pid)
     _val_: struct
         person: value pid
         course: value cid
 
-Lecturer: set for (pid cid) (Lecturer pid cid)
+Lecturer: set for (cid idx pid) (Lecturer cid idx pid)
     _val_: struct
         person: value pid
         course: value cid

@@ -212,7 +212,11 @@ def parse_lines(lines):
     return [parse_line(line) for line in iter_lines(lines) if line]
 
 
-def parse_tree(lookup_type, lines, parent_primtypes=None, li=None, curindent=None):
+def lookup_type(wslschema, table, col_index_0based):
+    return wslschema.tables[table].columns[col_index_0based]
+
+
+def parse_tree(wslschema, lines, parent_primtypes=None, li=None, curindent=None):
     if parent_primtypes is None:
         parent_primtypes = {}
 
@@ -232,9 +236,15 @@ def parse_tree(lookup_type, lines, parent_primtypes=None, li=None, curindent=Non
 
         primtypes = dict(parent_primtypes)
 
+
         def infer_types(query):
+            table = wslschema.tables.get(query.table)
+            if table is None:
+                raise ParseError('No such table: %s' %(query.table,))
+            if len(table.columns) != len(query.variables):
+                raise ParseError('Arity mismatch: Query %s has %d variables, but table from schema has %d columns' %(query, len(query.variables), len(table.columns)))
             for i, v in enumerate(query.variables):
-                typ = lookup_type(query.table, i)
+                typ = lookup_type(wslschema, query.table, i)
                 if v in query.freshvariables:
                     primtypes[v] = typ
                 elif v not in primtypes:
@@ -247,7 +257,7 @@ def parse_tree(lookup_type, lines, parent_primtypes=None, li=None, curindent=Non
 
         if membertype in ["struct", "option", "set", "list", "dict"]:
             assert membervariable is None
-            li, childs = parse_tree(lookup_type, lines, primtypes, li+1, curindent + 4)
+            li, childs = parse_tree(wslschema, lines, primtypes, li+1, curindent + 4)
 
             if membertype == "struct":
                 if query is not None:
@@ -298,20 +308,10 @@ def parse_tree(lookup_type, lines, parent_primtypes=None, li=None, curindent=Non
     return li, tree
 
 
-def make_type_lookup(wslschema):
-    def lookup_type(tablename, col_index_0based):
-        table = wslschema.tables.get(tablename)
-        if table is not None and len(table.columns) > col_index_0based:
-            return table.columns[col_index_0based]
-    return lookup_type
-
-
 def parse_spec(wslschema, spec):
     assert isinstance(spec, str)
 
-    lookup_type = make_type_lookup(wslschema)
-
     parsed_lines = parse_lines(spec.splitlines())
-    _, tree = parse_tree(lookup_type, parsed_lines)
+    _, tree = parse_tree(wslschema, parsed_lines)
 
     return Struct(tree, None)
