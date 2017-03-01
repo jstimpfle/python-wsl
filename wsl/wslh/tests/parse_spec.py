@@ -54,3 +54,5 @@ Lecturer: set for (cid idx pid) (Lecturer cid idx pid)
 """)
 
 print(myspec)
+print()
+print(sorted(wslh.check_coverage(myschema, myspec).items()))

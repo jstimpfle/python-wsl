@@ -1,5 +1,6 @@
 from .datatypes import Value, Struct, List, Dict, Query
 from .parse import parse_spec
+from .coverage import check_coverage
 from .objects2rows import objects2rows
 from .objects2text import objects2text
 from .rows2objects import rows2objects
