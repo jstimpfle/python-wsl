@@ -25,10 +25,6 @@ Person: dict for (pid fn ln abbr) (Person pid fn ln abbr)
         firstname: value fn
         lastname: value ln
         abbr: value abbr
-        lecturing: set for (cid X) (Lecturer cid X pid)
-            _val_: value cid
-        tutoring: set for (cid X) (Tutor cid X pid)
-            _val_: value cid
 
 Course: dict for (cid name) (Course cid name)
     _key_: value cid
@@ -41,16 +37,8 @@ Course: dict for (cid name) (Course cid name)
         tutor: list for (idx pid) (Tutor cid idx pid)
             _idx_: value idx
             _val_: value pid
-
-Tutor: set for (cid idx pid) (Tutor cid idx pid)
-    _val_: struct
-        person: value pid
-        course: value cid
-
-Lecturer: set for (cid idx pid) (Lecturer cid idx pid)
-    _val_: struct
-        person: value pid
-        course: value cid
 """)
 
 print(myspec)
+print()
+print(sorted(wslh.check_coverage(myschema, myspec).items()))

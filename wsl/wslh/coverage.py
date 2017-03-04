@@ -6,13 +6,20 @@ from .datatypes import List
 from .datatypes import Dict
 
 
-def doquery(query, bindings):
+def doquery(query, bindings, coverage):
     """Add bindings according to query"""
     for v in query.freshvariables:
         if v in bindings:
             raise ValueError("Sorry, can't handle shadowed variables (%s)" %(v,))
-        idx = query.variables.index(v)
-        bindings[v] = query.table, idx
+
+    for idx, v in enumerate(query.variables):
+        if v in query.freshvariables:
+            bindings[v] = query.table, idx
+        else:
+            assert v in bindings
+            # Being a child of some parent in a tree corresponds to explicit
+            # values in the foreign key columns.
+            coverage[query.table][idx] += 1
 
 
 def checkvalue(schema, spec, bindings, coverage):
@@ -26,23 +33,23 @@ def checkstruct(schema, spec, bindings, coverage):
 
 
 def checkoption(schema, spec, bindings, coverage):
-    doquery(spec.query, bindings)
+    doquery(spec.query, bindings, coverage)
     checkany(schema, spec.childs['_val_'], bindings, coverage)
 
 
 def checkset(schema, spec, bindings, coverage):
-    doquery(spec.query, bindings)
+    doquery(spec.query, bindings, coverage)
     checkany(schema, spec.childs['_val_'], bindings, coverage)
 
 
 def checklist(schema, spec, bindings, coverage):
-    doquery(spec.query, bindings)
+    doquery(spec.query, bindings, coverage)
     checkany(schema, spec.childs['_idx_'], bindings, coverage)
     checkany(schema, spec.childs['_val_'], bindings, coverage)
 
 
 def checkdict(schema, spec, bindings, coverage):
-    doquery(spec.query, bindings)
+    doquery(spec.query, bindings, coverage)
     checkany(schema, spec.childs['_key_'], bindings, coverage)
     checkany(schema, spec.childs['_val_'], bindings, coverage)
 
@@ -67,9 +74,9 @@ def checkany(schema, spec, bindings, coverage):
 def check_coverage(schema, spec):
     """Check schema coverage of a spec.
 
-    IN DEVELOPMENT - does not work yet. We still need to recognize functional
-    dependencies, at least for "Dict"s where values are often used both as key
-    and in the value. Read further to understand what this means.
+    IN DEVELOPMENT. We still need to recognize functional dependencies, at least
+    for "Dict"s where values are often used both as key and in the value. Read
+    further to understand what this means.
 
     Returns a dict, containing a tuple of *int* for every table name. The tuple
     contains for each column in the table the number of independent uses of this
