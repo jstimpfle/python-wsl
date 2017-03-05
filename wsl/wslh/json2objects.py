@@ -45,6 +45,7 @@ def struct2objects(make_reader, spec, is_dict_key):
         dct[k] = any2objects(make_reader, v, False)
 
     def struct_reader(text, i):
+        structstart = i
         items = {}
 
         i = lex_json_whitespace(text, i)
@@ -86,7 +87,7 @@ def struct2objects(make_reader, spec, is_dict_key):
         needkeys = set(dct.keys())
         havekeys = set(items.keys())
         if needkeys != havekeys:
-            raise ParseError('JSON struct', text, start, i, 'Missing members: %s' %(', '.join(needkeys.difference(havekeys()))))
+            raise ParseError('JSON struct', text, structstart, i, 'Missing members: %s' %(', '.join(needkeys.difference(havekeys))))
 
         return i, items
 
@@ -170,7 +171,7 @@ def dict2objects(make_reader, spec, is_dict_key):
             try:
                 i, k = key_reader(text, i)
             except ParseError as e:
-                raise ParseError('Cannot parse JSON dict key "%s"' %(k,)) from e
+                raise ParseError('JSON dict key', text, i, i, '?') from e
 
             i = lex_json_whitespace(text, i)
             i = lex_json_colon(text, i)
@@ -179,7 +180,7 @@ def dict2objects(make_reader, spec, is_dict_key):
             try:
                 i, v = val_reader(text, i)
             except ParseError as e:
-                raise ParseError('Cannot parse JSON dict value "%s"' %(v,)) from e
+                raise ParseError('JSON dict value', text, i, i, '?') from e
             i = lex_json_whitespace(text, i)
 
             items[k] = v
