@@ -12,6 +12,8 @@ class Settable():
             return '!%s' %(self.x,)
 
     def set(self, x):
+        if self.x is not None and self.x != x:
+            raise ValueError('A relational value was must be present at two locations (at different places in the tree, due to denormalization) but these values do not agree (values %s and %s)' %(self.x, x))
         self.x = x
 
     def get(self):
