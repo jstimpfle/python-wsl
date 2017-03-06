@@ -261,7 +261,7 @@ def parse_tree(wslschema, lines, parent_primtypes=None, li=None, curindent=None)
 
             if membertype == "struct":
                 if query is not None:
-                    raise ParseError('Struct at "%s": Queries not allowed for "struct" elements' %(line.desc(),))
+                    raise ParseError('Struct at %s: Queries not allowed for "struct" elements' %(line.desc(),))
                 for x in childs.keys():
                     if x.startswith('_'):
                         raise ParseError('Struct member at %s: child %s: must not start with underscore' %(line.desc(), x))
@@ -291,6 +291,8 @@ def parse_tree(wslschema, lines, parent_primtypes=None, li=None, curindent=None)
             assert membervariable is not None
 
             if membertype == "value":
+                if query is not None:
+                    raise ParseError('Value at %s: Queries not allowed for "value" elements' %(line.desc(),))
                 if membervariable not in primtypes:
                     raise ParseError('At %s: Variable not in scope: "%s"' %(line.desc(), membervariable))
 
