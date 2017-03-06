@@ -36,7 +36,7 @@ def _is_variable(v):
     return len(v) != 0 and v[0:1].isalpha() and v.isalnum()
 
 
-def parse_domain_decl(line, domain_parsers):
+def parse_domain_decl(line, text, pos, domain_parsers):
     """Parse a domain declaration line.
 
     Args:
@@ -49,7 +49,7 @@ def parse_domain_decl(line, domain_parsers):
     """
     ws = line.split(None, 1)
     if len(ws) != 2:
-        raise ParseError('Domain declaration', line, 0, 0, 'Expecting name and datatype declaration')
+        raise ParseError('Domain declaration', text, 0, pos, 'Expecting name and datatype declaration')
 
     domainname, spec = ws
     ws = spec.split(None, 1)
@@ -57,13 +57,13 @@ def parse_domain_decl(line, domain_parsers):
     param = ws[1] if len(ws) > 1 else ''
     parser = domain_parsers.get(parsername)
     if parser is None:
-        raise ParseError('Domain declaration', line, 0, 0, 'Parser "%s" not available' %(parsername,))
+        raise ParseError('Domain declaration', text, 0, pos, 'Parser "%s" not available' %(parsername,))
 
     funcs = parser(param)
     return SchemaDomain(domainname, spec, funcs)
 
 
-def parse_table_decl(line):
+def parse_table_decl(line, text, pos):
     """Parse a table declaration ilne.
 
     Args:
@@ -76,12 +76,12 @@ def parse_table_decl(line):
     spec = line
     ws = line.split()
     if not ws:
-        raise ParseError('Table declaration', line, 0, 0, 'empty line')
+        raise ParseError('Table declaration', text, 0, pos, 'empty line')
     name, cols = ws[0], tuple(ws[1:])
     return SchemaTable(name, spec, cols, colnames=[])
 
 
-def parse_key_decl(line):
+def parse_key_decl(line, text, pos):
     """Parse a key constraint declaration.
 
     Args:
@@ -95,11 +95,11 @@ def parse_key_decl(line):
     """
     ws = line.split(None, 1)
     if len(ws) != 2:
-        raise ParseError('KEY declaration', line, 0, 0, 'Expected key name and specification')
+        raise ParseError('KEY declaration', text, 0, pos, 'Expected key name and specification')
 
     name, spec = ws[0], ws[1]
     if not _is_identifier(name):
-        raise ParseError('KEY declaration', line, 0, 0, 'Invalid key name')
+        raise ParseError('KEY declaration', text, 0, pos, 'Invalid key name')
 
     ix = []
     ws = spec.split()
@@ -107,14 +107,14 @@ def parse_key_decl(line):
     vs = ws[1:]
     for i, v in enumerate(vs):
         if v != '*' and not _is_variable(v):
-            raise ParseError('KEY declaration', line, 0, 0, 'Invalid variable name "%s"' %(v,))
+            raise ParseError('KEY declaration', text, 0, pos, 'Invalid variable name "%s"' %(v,))
         elif v != '*':
             ix.append(i)
 
     return SchemaKey(name, spec, table, tuple(ix))
 
 
-def parse_foreignkey_decl(line, tables):
+def parse_foreignkey_decl(line, text, pos, tables):
     """Parse a REFERENCE constraint declaration.
 
     Args:
@@ -128,33 +128,33 @@ def parse_foreignkey_decl(line, tables):
     """
     ws = line.split(None, 1)
     if len(ws) < 2:
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Need a name and a datatype')
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Need a name and a datatype')
 
     name, spec = ws
     if not _is_identifier(name):
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Invalid REFERENCE name')
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Invalid REFERENCE name')
 
     parts = spec.split('=>')
     if len(parts) != 2:
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Expected <local key spec> => <foreign key spec>')
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Expected <local key spec> => <foreign key spec>')
 
     lws = parts[0].split(None, 1)
     if len(lws) != 2:
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Error in left-hand side of "=>"')
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Error in left-hand side of "=>"')
     table1, vs1 = lws[0], lws[1].split()
     if table1 not in tables:
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Local table "%s" is not defined' %(table1,))
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Local table "%s" is not defined' %(table1,))
     if len(vs1) != len(tables[table1].columns):
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Number of columns in left-hand side of "=>" (%d) does not match number of columns of table "%s" (%d)' %(len(vs1), tables[table1].name, len(tables[table1].columns)))
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Number of columns in left-hand side of "=>" (%d) does not match number of columns of table "%s" (%d)' %(len(vs1), tables[table1].name, len(tables[table1].columns)))
 
     rws = parts[1].split(None, 1)
     if len(rws) != 2:
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Error in right-hand side of "=>"')
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Error in right-hand side of "=>"')
     table2, vs2 = rws[0], rws[1].split()
     if table2 not in tables:
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Foreign table "%s" is not defined' %(table2,))
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Foreign table "%s" is not defined' %(table2,))
     if len(vs2) != len(tables[table2].columns):
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Number of columns in right-hand side of "=>" (%d) does not match number of columns of table "%s" (%d)' %(len(vs2), tables[table2].name, len(tables[table2].columns)))
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Number of columns in right-hand side of "=>" (%d) does not match number of columns of table "%s" (%d)' %(len(vs2), tables[table2].name, len(tables[table2].columns)))
 
     d1, d2 = {}, {}
 
@@ -164,14 +164,14 @@ def parse_foreignkey_decl(line, tables):
             if v == '*':
                 continue
             if not _is_variable(v):
-                raise ParseError('REFERENCE declaration', line, 0, 0, 'Invalid variable "%s"' %(v,))
+                raise ParseError('REFERENCE declaration', text, 0, pos, 'Invalid variable "%s"' %(v,))
 
             if v in d:
-                raise ParseError('REFERENCE declaration', line, 0, 0, 'Variable "%s" used twice on %s side of "=>"' %(v, side))
+                raise ParseError('REFERENCE declaration', text, 0, pos, 'Variable "%s" used twice on %s side of "=>"' %(v, side))
             d[v] = i
 
     if sorted(d1.keys()) != sorted(d2.keys()):
-        raise ParseError('REFERENCE declaration', line, 0, 0, 'Different variables used on both sides of "=>"')
+        raise ParseError('REFERENCE declaration', text, 0, pos, 'Different variables used on both sides of "=>"')
 
     # use maps to pair columns
     ix1 = tuple(i for _, i in sorted(d1.items()))
@@ -194,6 +194,8 @@ def parse_schema(schemastr, domain_parsers=None):
     if domain_parsers is None:
         domain_parsers = get_builtin_domain_parsers()
 
+    text = schemastr
+
     domains = {}
     tables = {}
     keys = {}
@@ -206,11 +208,18 @@ def parse_schema(schemastr, domain_parsers=None):
     foreignkeyspecs = set()
     colnamespecs = set()
 
-    # TODO: don't split in lines but keep an index, for better error messages
-    for line in schemastr.splitlines():
-        line = line.strip()
-        if not line:
+    i = 0
+    end = len(text)
+    while i < end:
+        if text[i] == '\n':
+            i += 1
             continue
+
+        eol = text.find('\n', i)
+        if eol == -1:
+            eol = len(text)
+
+        line = text[i:eol]
 
         ws = line.split(None, 1)
         if len(ws) != 2:
@@ -218,41 +227,43 @@ def parse_schema(schemastr, domain_parsers=None):
 
         kw, spec = ws
         if kw == 'DOMAIN':
-            domainspecs.add(spec)
+            domainspecs.add((spec, i))
         elif kw == 'TABLE':
-            tablespecs.add(spec)
+            tablespecs.add((spec, i))
         elif kw == 'KEY':
-            keyspecs.add(spec)
+            keyspecs.add((spec, i))
         elif kw == 'REFERENCE':
-            foreignkeyspecs.add(spec)
+            foreignkeyspecs.add((spec, i))
         else:
             pass  # XXX
 
-    for spec in domainspecs:
-        domain = parse_domain_decl(spec, domain_parsers)
+        i = eol
+
+    for spec, pos in domainspecs:
+        domain = parse_domain_decl(spec, text, pos, domain_parsers)
         if domain.name in domains:
-            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of domain "%s"' %(domain.name,))
+            raise ParseError('Schema', text, 0, pos, 'Redeclaration of domain "%s"' %(domain.name,))
         domains[domain.name] = domain
 
-    for spec in tablespecs:
-        table = parse_table_decl(spec)
+    for spec, pos in tablespecs:
+        table = parse_table_decl(spec, text, pos)
         if table.name in tables:
-            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of table "%s"' %(table.name,))
+            raise ParseError('Schema', text, 0, pos, 'Redeclaration of table "%s"' %(table.name,))
         tables[table.name] = table
 
-    for spec in keyspecs:
-        key = parse_key_decl(spec)
+    for spec, pos in keyspecs:
+        key = parse_key_decl(spec, text, pos)
         if key.name in keys:
-            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of key "%s"' %(key.name,))
+            raise ParseError('Schema', text, 0, pos, 'Redeclaration of key "%s"' %(key.name,))
         keys[key.name] = key
 
-    for spec in foreignkeyspecs:
-        fkey = parse_foreignkey_decl(spec, tables)
+    for spec, pos in foreignkeyspecs:
+        fkey = parse_foreignkey_decl(spec, text, pos, tables)
         if fkey.name in foreignkeys:
-            raise ParseError('Schema', schemastr, 0, 0, 'Redeclaration of foreign key "%s"' %(fkey.name,))
+            raise ParseError('Schema', text, 0, pos, 'Redeclaration of foreign key "%s"' %(fkey.name,))
         foreignkeys[fkey.name] = fkey
 
-    return Schema(schemastr, domains, tables, keys, foreignkeys)
+    return Schema(text, domains, tables, keys, foreignkeys)
 
 
 def parse_tokens(text, i, lexers):
