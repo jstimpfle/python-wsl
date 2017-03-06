@@ -159,7 +159,7 @@ def parse_foreignkey_decl(line, tables):
     d1, d2 = {}, {}
 
     # build maps (variable -> column index) for both sides
-    for (table, vs, d) in [(table1, vs1, d1), (table2, vs2, d2)]:
+    for (table, vs, d, side) in [(table1, vs1, d1, 'left'), (table2, vs2, d2, 'right')]:
         for i, v in enumerate(vs):
             if v == '*':
                 continue
@@ -167,7 +167,7 @@ def parse_foreignkey_decl(line, tables):
                 raise ParseError('REFERENCE declaration', line, 0, 0, 'Invalid variable "%s"' %(v,))
 
             if v in d:
-                raise ParseError('REFERENCE declaration', line, 0, 0, 'Variable "%s" used twice on one side of "=>"' %(v, name, name))
+                raise ParseError('REFERENCE declaration', line, 0, 0, 'Variable "%s" used twice on %s side of "=>"' %(v, side))
             d[v] = i
 
     if sorted(d1.keys()) != sorted(d2.keys()):
