@@ -115,7 +115,8 @@ def parse_indent(line):
         i += 1
     if i < end and line[i] == '\t':
         raise ParseError('Tabs not allowed for indent at %s' %(line.desc(i),))
-    return i
+    indent = i
+    return i, indent
 
 
 def parse_member_type(line, i):
@@ -168,8 +169,7 @@ def parse_line(line):
     """
     end = len(line)
 
-    i = parse_indent(line)
-    indent = i
+    i, indent = parse_indent(line)
 
     try:
         i, membername = parse_identifier(line, i)

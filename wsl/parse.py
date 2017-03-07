@@ -319,7 +319,6 @@ def split_schema(text, i):
     end = len(text)
 
     lines = []
-
     while i < end and text[i] == '%':
         i += 1
         while i < end and text[i] == ' ':
@@ -348,8 +347,8 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
     One, and only one, of *dbfilepath* or *dbstr* should be given.
 
     Args:
-        dbfilepath (str): Path to the file that contains the database.
-        dbstr (str): A string that holds the database.
+        dbfilepath (str): Path to a database file.
+        dbstr (str): Database string.
         schema (wsl.Schema): Optional schema. If not given, the schema is
             expected to be given in text form (either in *schemastr* or inline
             as part of the database).
@@ -371,19 +370,20 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
     assert schemastr is None or isinstance(schemastr, str)
     assert domain_parsers is None or isinstance(domain_parsers, dict)
 
-    if len(list(x for x in [schema, schemastr] if x is not None)) > 1:
-        raise ValueError('At most one of "schema" or "schemastr" arguments is allowed')
+    if schema is not None and schemastr is not None:
+        raise ValueError('Only one of "schema" or "schemastr" arguments allowed')
 
-    if len(list(x for x in [dbfilepath, dbstr] if x is not None)) != 1:
-        raise ValueError('Need exactly one of "dbfilepath" or "dbstr" arguments')
+    if dbfilepath is not None and dbstr is not None:
+        raise ValueError('Only one of "dbfilepath" or "dbstr" arguments allowed')
+
+    if dbfilepath is None and dbstr is None:
+        raise ValueError('Need either "dbfilepath" or "dbstr"')
 
     if dbfilepath is not None:
         with open(dbfilepath, "r", encoding="utf-8", newline='\n') as f:
             text = f.read()
-
-    if dbstr is not None:
+    elif dbstr is not None:
         text = dbstr
-
     assert isinstance(text, str)
 
     i = 0
@@ -391,7 +391,6 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
     if schema is None:
         if schemastr is None:
             i, schemastr = split_schema(text, i)
-
         schema = parse_schema(schemastr, domain_parsers)
 
     lexers_of_relation = {}
