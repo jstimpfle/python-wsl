@@ -40,17 +40,37 @@ def lex_wsl_int(text, i):
     start = i
     end = len(text)
 
-    m = re.match(r'0|-?[1-9][0-9]*', text[i:])
+    regex = r'0|-?[1-9][0-9]*'
+    m = re.match(regex, text[i:])
 
     if m is None:
-        raise LexError('WSL integer literal', text, start, i, 'Integer literals must match /0|-?[1-9][0-9]*/')
+        raise LexError('WSL integer literal', text, start, i, 'Integer literals must match /%s/' %(regex,))
 
     i += m.end()
-
     return i, text[start:i]
 
 
 def unlex_wsl_int(token):
+    if not isinstance(token, str):
+        raise TypeError()
+    return str(token)
+
+
+def lex_wsl_float(text, i):
+    start = i
+    end = len(text)
+
+    regex = r'-?0.[0-9]*|-?[1-9][0-9]*.[0-9]*'
+    m = re.match(regex, text[i:])
+
+    if m is None:
+        raise LexError('WSL float literal', text, start, i, 'Float literals must match /%s/' %(regex,))
+
+    i += m.end()
+    return i, text[start:i]
+
+
+def unlex_wsl_float(token):
     if not isinstance(token, str):
         raise TypeError()
     return str(token)

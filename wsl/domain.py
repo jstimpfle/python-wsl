@@ -15,14 +15,18 @@ from .lexwsl import lex_wsl_relation_name
 from .lexwsl import lex_wsl_string_without_escapes
 from .lexwsl import lex_wsl_string_with_escapes
 from .lexwsl import lex_wsl_int
+from .lexwsl import lex_wsl_float
 from .lexwsl import unlex_wsl_identifier
 from .lexwsl import unlex_wsl_string_without_escapes
 from .lexwsl import unlex_wsl_string_with_escapes
 from .lexwsl import unlex_wsl_int
+from .lexwsl import unlex_wsl_float
 from .lexjson import lex_json_int
 from .lexjson import lex_json_string
+from .lexjson import lex_json_float
 from .lexjson import unlex_json_int
 from .lexjson import unlex_json_string
+from .lexjson import unlex_json_float
 
 
 def split_opts(line):
@@ -91,6 +95,19 @@ def parse_Int_domain(line):
         jsonlex = lex_json_int
         jsonunlex = unlex_json_int
     return IntDomain
+
+
+def parse_Float_domain(line):
+    if line:
+        raise ParseError('Contruction of Float domain does not receive any arguments')
+    class FloatDomain:
+        decode = Float_decode
+        encode = Float_encode
+        wsllex = lex_wsl_float
+        wslunlex = unlex_wsl_float
+        jsonlex = lex_json_float
+        jsonunlex = unlex_json_float
+    return FloatDomain
 
 
 class EnumBase:
@@ -188,6 +205,17 @@ def Int_encode(value):
     return str(value)
 
 
+def Float_decode(token):
+    try:
+        return float(token)
+    except ValueError as e:
+        raise ParseError('Failed to parse float') from e
+
+
+def Float_encode(value):
+    return str(value)
+
+
 def make_Enum_decode(values):
     def Enum_decode(token):
         for enumValue in values:
@@ -241,6 +269,7 @@ _builtin_domain_parsers = {
     'String': parse_String_domain,
     'Enum': parse_Enum_domain,
     'Int': parse_Int_domain,
+    'Float': parse_Float_domain,
     'IPv4': parse_IPv4_domain,
 }
 
