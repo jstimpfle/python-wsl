@@ -404,7 +404,10 @@ def parse_db(dbfilepath=None, dbstr=None, schema=None, schemastr=None, domain_pa
 
     end = len(text)
     while i < end:
-        if text[i] != '\n':
+        if text[i] == '#':
+            while i < end and text[i] != '\n':
+                i += 1
+        if text[i] != '\n' and text[i]:
             i, (table, tup) = parse_row(text, i, lexers_of_relation)
             tokens_of_relation[table].append(tup)
         else:
