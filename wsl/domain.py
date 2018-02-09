@@ -221,6 +221,7 @@ def make_Enum_decode(values):
         for enumValue in values:
             if enumValue.string == token:
                 return enumValue
+        raise ParseError('Failed to parse token %s' %(token,)) from e
     return Enum_decode
 
 
